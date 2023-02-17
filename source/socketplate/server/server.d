@@ -108,8 +108,11 @@ void listenTCP(SocketServer server, Address address, ConnectionHandler handler)
 {
     logTrace("Registering TCP listener on ", address.toString);
 
+    ProtocolType protocolType = (address.addressFamily == AddressFamily.UNIX)
+        ? cast(ProtocolType) 0 : ProtocolType.TCP;
+
     auto listener = new SocketListener(
-        new TcpSocket(address.addressFamily),
+        new Socket(address.addressFamily, SocketType.STREAM, protocolType),
         address,
         handler,
     );
@@ -136,7 +139,10 @@ private Address toPhobos(SocketAddress sockAddr)
         final switch (sockAddr.type) with (SocketAddress.Type)
         {
         case unixDomain:
-            return new UnixAddress(sockAddr.address);
+            version (Posix)
+                return new UnixAddress(sockAddr.address);
+            else
+                assert(false, "Unix Domain sockets unavailable");
 
         case ipv4:
             assert(sockAddr.port > 0);
