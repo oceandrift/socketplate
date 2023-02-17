@@ -1,0 +1,7 @@
+{
+	"name": "socketplate-example-tcp-echo",
+    "targetPath": "bin",
+    "dependencies": {
+        "socketplate": {"path": "../../"}
+    }
+}
