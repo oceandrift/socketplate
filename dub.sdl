@@ -1,0 +1,13 @@
+name "socketplate"
+description "Boilerplate socket server"
+
+copyright "Copyright © 2023  Elias Batek"
+license "BSL-1.0"
+
+authors "Elias Batek (0xEAB)"
+
+targetType "library"
+targetPath "bin"
+
+dflags "-preview=dip1000"
+
