@@ -1,0 +1,157 @@
+module socketplate.server.server;
+
+import socketplate.address;
+import socketplate.connection;
+import socketplate.log;
+import socketplate.server.worker;
+import std.format;
+import std.socket;
+
+@safe:
+
+///
+struct SocketServerTunables
+{
+    int backlog = 1; ///
+    int timeout = 30; ///
+    int workers = 2; ///
+}
+
+final class SocketServer
+{
+@safe:
+
+    private
+    {
+        SocketServerTunables _tunables;
+        bool _shutdown = false;
+
+        SocketListener[] _listeners;
+    }
+
+    public this(SocketServerTunables tunables)
+    {
+        _tunables = tunables;
+    }
+
+    public this()
+    {
+        this(SocketServerTunables());
+    }
+
+    public
+    {
+        int run()
+        {
+            if (_listeners.length == 0)
+            {
+                logWarning("There are no listeners, hence no workers to spawn.");
+                return 0;
+            }
+
+            logTrace("Running");
+            int x = spawnWorkers();
+            logTrace("Exiting");
+            return x;
+        }
+
+        void bind()
+        {
+            foreach (listener; _listeners)
+                listener.bind();
+        }
+
+        void registerListener(SocketListener listener)
+        {
+            _listeners ~= listener;
+        }
+    }
+
+    private
+    {
+        int spawnWorkers()
+        {
+            import core.thread;
+
+            logTrace("Starting SocketServer in Threading mode");
+
+            Thread[] threads;
+            foreach (SocketListener listener; _listeners)
+            {
+                listener.listen(_tunables.backlog);
+
+                foreach (i; 0 .. _tunables.workers)
+                {
+                    threads ~= (function(size_t id, SocketListener listener) {
+                        return new Thread(() {
+                            auto worker = new Worker(listener, id);
+                            worker.run();
+                        });
+                    })(threads.length, listener);
+                }
+            }
+
+            // TODO: Graceful shutdown
+
+            foreach (Thread thread; threads)
+                function(Thread thread) @trusted { thread.start(); }(thread);
+
+            foreach (Thread thread; threads)
+                function(Thread thread) @trusted { thread.join(); }(thread);
+
+            return 0; // TODO
+        }
+    }
+}
+
+void listenTCP(SocketServer server, Address address, ConnectionHandler handler)
+{
+    logTrace("Registering TCP listener on ", address.toString);
+
+    auto listener = new SocketListener(
+        new TcpSocket(address.addressFamily),
+        address,
+        handler,
+    );
+
+    server.registerListener(listener);
+}
+
+void listenTCP(SocketServer server, SocketAddress listenOn, ConnectionHandler handler)
+{
+    return listenTCP(server, listenOn.toPhobos(), handler);
+}
+
+void listenTCP(SocketServer server, string listenOn, ConnectionHandler handler)
+{
+    SocketAddress sockAddr;
+    assert(parseSocketAddress(listenOn, sockAddr), "Invalid listening address");
+    return listenTCP(server, sockAddr, handler);
+}
+
+private Address toPhobos(SocketAddress sockAddr)
+{
+    try
+    {
+        final switch (sockAddr.type) with (SocketAddress.Type)
+        {
+        case unixDomain:
+            return new UnixAddress(sockAddr.address);
+
+        case ipv4:
+            assert(sockAddr.port > 0);
+            return new InternetAddress(sockAddr.address, cast(ushort) sockAddr.port);
+
+        case ipv6:
+            assert(sockAddr.port > 0);
+            return new Internet6Address(sockAddr.address, cast(ushort) sockAddr.port);
+
+        case invalid:
+            assert(false, "Invalid address");
+        }
+    }
+    catch (AddressException ex)
+    {
+        assert(false, "Invalid address: " ~ ex.msg);
+    }
+}
