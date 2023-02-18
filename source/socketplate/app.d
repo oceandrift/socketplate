@@ -205,6 +205,7 @@ int runSocketplateApp(
     SocketServerTunables defaults = SocketServerTunables(),
 )
 {
+    // “Manual handler setup” mode
     return runSocketplateAppImpl(appName, args, setupCallback, defaults);
 }
 
@@ -217,16 +218,29 @@ int runSocketplateAppTCP(
     SocketServerTunables defaults = SocketServerTunables(),
 )
 {
+    // “Single connection handler” mode
+
+    // This function adds a “listening addresses” parameter `-S` (aka `--serve`) to getopt options.
+    // Also provides a special setup-callback that sets up listeners
+    // for the listening addresses retrieved via getopt.
+    // As fallback, it resorts to `defaultListeningAddresses`.
+
+    // getopt target
     string[] sockets;
+
+    // setup listeners for the requested listening addresses (or default addresses)
     auto setupCallback = delegate(SocketServer server) @safe {
+        // no listening address requested?
         if (sockets.length == 0)
         {
+            // no default address(es) provided?
             if (defaultListeningAddresses.length == 0)
             {
                 logError("No listening addresses specified. Use --serve= ");
                 return;
             }
 
+            // use default address(es) instead
             foreach (sockAddr; defaultListeningAddresses)
             {
                 logTrace("Will listen on default address: " ~ sockAddr);
@@ -236,6 +250,7 @@ int runSocketplateAppTCP(
             return;
         }
 
+        // parse requested listening addresses and register listeners
         foreach (socket; sockets)
         {
             SocketAddress parsed;
@@ -264,6 +279,7 @@ private
         string groupname = null;
         bool verbose = false;
 
+        // process `args` (usually command line options)
         GetoptResult getOptR;
         try
             getOptR = getopt(
@@ -278,21 +294,26 @@ private
         {
             import std.stdio : stderr;
 
+            // bad option (or similar issue)
             (() @trusted { stderr.writeln(ex.message); })();
             return 1;
         }
 
+        // `--help`?
         if (getOptR.helpWanted)
         {
             defaultGetoptPrinter(appName, getOptR.options);
             return 0;
         }
 
+        // set log level (`--verbose`?)
         LogLevel logLevel = (verbose) ? LogLevel.trace : LogLevel.info;
         setLogLevel(logLevel);
 
+        // apply caller-provided defaults
         SocketServerTunables tunables = defaults;
 
+        // apply `--workers` if applicable
         if (workers != int.min)
         {
             if (workers < 1)
@@ -304,9 +325,11 @@ private
             tunables.workers = workers;
         }
 
+        // print app name before further setup
         logInfo(appName);
         auto server = new SocketServer(tunables);
 
+        // do setup, if non-null callback provided
         if (setupCallback !is null)
         {
             try
@@ -319,12 +342,14 @@ private
             }
         }
 
+        // bind to listening ports
         server.bind();
 
         // drop privileges
         if (!dropPrivs(username, groupname))
             return 1;
 
+        // let’s go
         return server.run();
     }
 
