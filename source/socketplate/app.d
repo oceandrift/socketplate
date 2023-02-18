@@ -238,9 +238,7 @@ int runSocketplateAppTCP(
 
         foreach (socket; sockets)
         {
-            logInfo("ToDo: " ~ socket);
             SocketAddress parsed;
-
             if (!parseSocketAddress(socket, parsed))
                 throw new Exception("Invalid listening address: `" ~ socket ~ "`");
 
