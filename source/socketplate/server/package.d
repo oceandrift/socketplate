@@ -49,6 +49,9 @@
     `bind` + `listen` are called by the server before starting the workers.
 
     `accept` is called in the worker’s loop until the worker is shut down.
+
+    `ensureShutdownClosed` is called by the server before exiting
+    and shuts down and closes the listener’s socket (if still open).
  +/
 module socketplate.server;
 

@@ -112,15 +112,28 @@ final class SocketServer
                 }
             }
 
+            scope (exit)
+                foreach (SocketListener listener; _listeners)
+                    listener.ensureShutdownClosed();
+
             // TODO: Graceful shutdown
+
+            bool error = false;
 
             foreach (Thread thread; threads)
                 function(Thread thread) @trusted { thread.start(); }(thread);
 
             foreach (Thread thread; threads)
-                function(Thread thread) @trusted { thread.join(); }(thread);
+            {
+                function(Thread thread, ref error) @trusted {
+                    try
+                        thread.join();
+                    catch (Exception)
+                        error = true;
+                }(thread, error);
+            }
 
-            return 0; // TODO
+            return (error) ? 1 : 0;
         }
     }
 }

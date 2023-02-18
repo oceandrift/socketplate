@@ -39,6 +39,11 @@ final class SocketListener
         _state = State.initial;
     }
 
+    public bool isClosed() pure nothrow @nogc
+    {
+        return (_state == State.closed);
+    }
+
     public void bind()
     in (_state == State.initial)
     {
@@ -81,6 +86,7 @@ final class SocketListener
     }
 
     private void shutdownClose()
+    in (_state != State.closed)
     {
         logTrace(format!"Shutting down socket (#%X)"(_socket.handle));
         _socket.shutdown(SocketShutdown.BOTH);
@@ -89,6 +95,14 @@ final class SocketListener
         _socket.close();
 
         _state = State.closed;
+    }
+
+    public void ensureShutdownClosed()
+    {
+        if (_state == State.closed)
+            return;
+
+        shutdownClose();
     }
 }
 
@@ -115,8 +129,6 @@ class Worker
         _active.atomicStore = true;
         while (atomicLoad(_active))
             _listener.accept(_id);
-
-        _listener.shutdownClose();
     }
 
     public void shutdown() shared
