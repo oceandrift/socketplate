@@ -85,13 +85,15 @@ final class SocketListener
         }
     }
 
-    private void shutdownClose()
+    private void shutdownClose(bool doLog = true)()
     in (_state != State.closed)
     {
-        logTrace(format!"Shutting down socket (#%X)"(_socket.handle));
+        static if (doLog)
+            logTrace(format!"Shutting down socket (#%X)"(_socket.handle));
         _socket.shutdown(SocketShutdown.BOTH);
 
-        logTrace(format!"Closing socket (#%X)"(_socket.handle));
+        static if (doLog)
+            logTrace(format!"Closing socket (#%X)"(_socket.handle));
         _socket.close();
 
         _state = State.closed;
@@ -102,7 +104,15 @@ final class SocketListener
         if (_state == State.closed)
             return;
 
-        shutdownClose();
+        shutdownClose!true();
+    }
+
+    public void ensureShutdownClosedNoLog() nothrow @nogc
+    {
+        if (_state == State.closed)
+            return;
+
+        shutdownClose!false();
     }
 }
 
@@ -131,7 +141,7 @@ class Worker
             _listener.accept(_id);
     }
 
-    public void shutdown() shared
+    public void shutdown() nothrow @nogc
     {
         _active.atomicStore = false;
     }
