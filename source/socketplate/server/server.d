@@ -1,3 +1,6 @@
+/++
+    Socket server implementation
+ +/
 module socketplate.server.server;
 
 import socketplate.address;
@@ -9,14 +12,28 @@ import std.socket;
 
 @safe:
 
-///
+/++
+    Options to tailor the socket server to your needs
+ +/
 struct SocketServerTunables
 {
-    int backlog = 1; ///
-    int timeout = 30; ///
-    int workers = 2; ///
+    /++
+        Listening backlog
+     +/
+    int backlog = 1;
+
+    /++
+        Receive/read timeout
+     +/
+    int timeout = 30;
+
+    /++
+        Number of workers per listener
+     +/
+    int workers = 2;
 }
 
+///
 final class SocketServer
 {
 @safe:
@@ -29,11 +46,13 @@ final class SocketServer
         SocketListener[] _listeners;
     }
 
+    ///
     public this(SocketServerTunables tunables)
     {
         _tunables = tunables;
     }
 
+    /// ditto
     public this()
     {
         this(SocketServerTunables());
@@ -41,6 +60,7 @@ final class SocketServer
 
     public
     {
+        ///
         int run()
         {
             if (_listeners.length == 0)
@@ -55,6 +75,7 @@ final class SocketServer
             return x;
         }
 
+        ///
         void bind()
         {
             foreach (listener; _listeners)
@@ -104,6 +125,9 @@ final class SocketServer
     }
 }
 
+/++
+    Registers a new TCP listener
+ +/
 void listenTCP(SocketServer server, Address address, ConnectionHandler handler)
 {
     logTrace("Registering TCP listener on ", address.toString);
@@ -120,11 +144,13 @@ void listenTCP(SocketServer server, Address address, ConnectionHandler handler)
     server.registerListener(listener);
 }
 
+/// ditto
 void listenTCP(SocketServer server, SocketAddress listenOn, ConnectionHandler handler)
 {
     return listenTCP(server, listenOn.toPhobos(), handler);
 }
 
+/// ditto
 void listenTCP(SocketServer server, string listenOn, ConnectionHandler handler)
 {
     SocketAddress sockAddr;
@@ -132,6 +158,7 @@ void listenTCP(SocketServer server, string listenOn, ConnectionHandler handler)
     return listenTCP(server, sockAddr, handler);
 }
 
+// Converts a SocketAddress to an `std.socket.Address`
 private Address toPhobos(SocketAddress sockAddr)
 {
     try

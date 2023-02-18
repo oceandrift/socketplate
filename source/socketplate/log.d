@@ -44,22 +44,22 @@ public import std.logger : LogLevel;
 
 @safe:
 
-///
+/// Logs a trace/debug message
 alias logTrace = defaultLogFunction!(LogLevel.trace);
 
-///
+/// Logs an informational message
 alias logInfo = defaultLogFunction!(LogLevel.info);
 
-///
+/// Logs a warning
 alias logWarning = defaultLogFunction!(LogLevel.warning);
 
-///
+/// Logs an non-critical error
 alias logError = defaultLogFunction!(LogLevel.error);
 
-///
+/// Logs a critical error
 alias logCritical = defaultLogFunction!(LogLevel.critical);
 
-///
+/// Logs a fatal error and raises an Error to halt execution by crashing the application
 alias logFatalAndCrash = defaultLogFunction!(LogLevel.fatal);
 
 ///

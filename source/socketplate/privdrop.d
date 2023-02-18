@@ -38,7 +38,8 @@ version (Posix)
         }
     }
 
-    Privileges currentPrivileges() nothrow @nogc
+    ///
+    Privileges currentPrivileges() @nogc
     {
         import core.sys.posix.unistd;
 
@@ -48,6 +49,7 @@ version (Posix)
         );
     }
 
+    ///
     bool resolveUsername(string username, out uid_t result) @trusted
     {
         import core.sys.posix.pwd;
@@ -82,6 +84,7 @@ version (Posix)
         return false;
     }
 
+    ///
     bool resolveGroupname(string groupname, out gid_t result) @trusted
     {
         import core.sys.posix.grp;
@@ -107,6 +110,7 @@ version (Posix)
         return true;
     }
 
+    ///
     bool dropPrivileges(Privileges privileges) @nogc
     {
         if (!privileges.group.isNull)

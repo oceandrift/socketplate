@@ -4,7 +4,7 @@
 
     ## Developer manual
 
-    Want to build your own app?
+    Want to $(B build your own app) using socketplate?
 
     See [socketplate.app] and have fun!
 

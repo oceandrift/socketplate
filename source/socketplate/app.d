@@ -1,6 +1,8 @@
 /++
     socketplate – “app entry point” helper module
 
+    Also provides all necessary $(I public imports) to quickstart coding.
+
     ## Developer manual
 
     Hello and welcome to socketplate.
@@ -154,6 +156,10 @@
         // do something…
     }
     ---
+
+    ### Logging
+
+    See [socketplate.log] for details.
  +/
 module socketplate.app;
 
