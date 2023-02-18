@@ -245,7 +245,7 @@ private
 
             () @trusted {
                 signal(SIGINT, &_gracefulShutdown);
-                signal(SIGINT, &_gracefulShutdown);
+                signal(SIGTERM, &_gracefulShutdown);
             }();
         }
         version (Windows)
