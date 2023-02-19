@@ -131,6 +131,7 @@
     {
         ptrdiff_t bytesSent = connection.send("my data");
     }
+    ---
 
     #### Receiving
 
