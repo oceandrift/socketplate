@@ -27,17 +27,20 @@ final class SocketListener
     private
     {
         State _state;
+
         Socket _socket;
         Address _address;
         ConnectionHandler _callback;
+        int _timeout;
         static Socket _accepted = null;
     }
 
-    public this(Socket socket, Address address, ConnectionHandler callback) pure nothrow @nogc
+    public this(Socket socket, Address address, ConnectionHandler callback, int timeout) pure nothrow @nogc
     {
         _socket = socket;
         _address = address;
         _callback = callback;
+        _timeout = timeout;
 
         _state = State.initial;
     }
@@ -78,7 +81,7 @@ final class SocketListener
 
         logTrace(format!"Incoming connection accepted (#%X @%02d)"(acceptedID, workerID));
         try
-            _callback(SocketConnection(_accepted));
+            _callback(makeSocketConnection(_accepted, _timeout));
         catch (Exception ex)
             logError(
                 format!"Unhandled Exception in connection handler (#%X): %s"(acceptedID, ex.msg)
@@ -191,6 +194,13 @@ class Worker
             this._listener.shutdownAccepted();
         });
     }
+}
+
+private SocketConnection makeSocketConnection(Socket socket, int seconds)
+{
+    auto sc = SocketConnection(socket);
+    sc.timeout!(Direction.receive)(seconds);
+    return sc;
 }
 
 private void unlinkUnixDomainSocket(Address addr)

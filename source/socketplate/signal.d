@@ -5,6 +5,7 @@ module socketplate.signal;
 
 import core.thread : Thread;
 import socketplate.log;
+import std.string : format;
 
 alias SignalFunc = void delegate(int) nothrow @nogc;
 
@@ -12,7 +13,7 @@ alias SignalFunc = void delegate(int) nothrow @nogc;
 void setupSignalHandlers(SignalFunc handler) @safe
 in (handler !is null)
 {
-    logTrace("Setting up signal handlers");
+    logTrace(format!"Setting up signal handlers for thread: 0x%X"(Thread.getThis().id));
     _onSignal = handler;
 
     version (Posix)

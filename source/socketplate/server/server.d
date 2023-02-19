@@ -26,7 +26,7 @@ struct SocketServerTunables
     /++
         Receive/read timeout
      +/
-    int timeout = 30;
+    int timeout = 60;
 
     /++
         Number of workers per listener
@@ -177,6 +177,7 @@ void listenTCP(SocketServer server, Address address, ConnectionHandler handler)
         new Socket(address.addressFamily, SocketType.STREAM, protocolType),
         address,
         handler,
+        server._tunables.timeout,
     );
 
     server.registerListener(listener);
