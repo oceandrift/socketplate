@@ -21,7 +21,7 @@ struct SocketServerTunables
     /++
         Listening backlog
      +/
-    int backlog = 1;
+    int backlog = SOMAXCONN;
 
     /++
         Receive/read timeout
