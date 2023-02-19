@@ -1,0 +1,7 @@
+{
+	"name": "socketplate-example-manual-setup",
+    "targetPath": "bin",
+    "dependencies": {
+        "socketplate": {"path": "../../"}
+    }
+}
