@@ -25,7 +25,7 @@ struct SocketConnection
     @disable this();
     @disable this(this);
 
-    this(Socket socket)
+    this(Socket socket) pure nothrow @nogc
     {
         _socket = socket;
     }

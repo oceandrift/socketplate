@@ -53,13 +53,13 @@ final class SocketServer
     }
 
     ///
-    public this(SocketServerTunables tunables)
+    public this(SocketServerTunables tunables) pure nothrow @nogc
     {
         _tunables = tunables;
     }
 
     /// ditto
-    public this()
+    public this() pure nothrow @nogc
     {
         this(SocketServerTunables());
     }
