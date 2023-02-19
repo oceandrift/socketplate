@@ -50,6 +50,9 @@ final class SocketListener
     public void bind()
     in (_state == State.initial)
     {
+        // unlink Unix Domain Socket file if applicable
+        unlinkUnixDomainSocket(_address);
+
         logTrace(format!"Binding to %s (#%X)"(_address.toString, _socket.handle));
         _socket.bind(_address);
         _state = State.bound;
@@ -187,5 +190,41 @@ class Worker
             this._listener.ensureShutdownClosedNoLog();
             this._listener.shutdownAccepted();
         });
+    }
+}
+
+private void unlinkUnixDomainSocket(Address addr)
+{
+    import std.socket : AddressFamily;
+
+    version (Posix)
+    {
+        if (addr.addressFamily == AddressFamily.UNIX)
+        {
+            import core.sys.posix.unistd : unlink;
+            import std.file : exists;
+            import std.socket : UnixAddress;
+            import std.string : toStringz;
+
+            UnixAddress uaddr = cast(UnixAddress) addr;
+
+            if (uaddr is null)
+            {
+                logError("Cannot determine path of Unix Domain Socket");
+                return;
+            }
+
+            if (!uaddr.path.exists)
+            {
+                logTrace("Unix Domain Socket path does not exists; nothing to unlink");
+                return;
+            }
+
+            logTrace(format!"Unlinking Unix Domain Socket file: %s"(uaddr.path));
+            int r = () @trusted { return unlink(uaddr.path.toStringz); }();
+
+            if (r != 0)
+                logTrace(format!"Unlinking failed with status: %d"(r));
+        }
     }
 }
