@@ -77,28 +77,35 @@ void logException(LogLevel logLevel = LogLevel.error, LogLevel details = LogLeve
     string prettyFuncName = __PRETTY_FUNCTION__,
     string moduleName = __MODULE__,
 )
-@safe
+@safe nothrow
 {
     import std.logger : log;
     import std.string : format;
 
-    log(
-        logLevel,
-        line, file, funcName, prettyFuncName, moduleName,
-        format!"%s: %s"(description, exception.msg)
-    );
-
     try
     {
         log(
-            details,
+            logLevel,
             line, file, funcName, prettyFuncName, moduleName,
-            format!"Details: %s"(() @trusted { return exception.toString(); }())
+            format!"%s: %s"(description, exception.msg)
         );
+
+        try
+        {
+            log(
+                details,
+                line, file, funcName, prettyFuncName, moduleName,
+                format!"Details: %s"(() @trusted { return exception.toString(); }())
+            );
+        }
+        catch (Exception ex)
+        {
+            logTrace(format!"Failed to log details: %s"(ex.msg));
+        }
     }
-    catch (Exception ex)
+    catch (Exception)
     {
-        logTrace(format!"Failed to log details: %s"(ex.msg));
+        // suppress
     }
 }
 
