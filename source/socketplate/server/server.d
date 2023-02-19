@@ -3,6 +3,7 @@
  +/
 module socketplate.server.server;
 
+import core.thread;
 import socketplate.address;
 import socketplate.connection;
 import socketplate.log;
@@ -76,7 +77,7 @@ final class SocketServer
 
             logTrace("Running");
             int x = spawnWorkers();
-            logTrace("Exiting");
+            logTrace("Exiting (Main Thread)");
             return x;
         }
 
@@ -97,8 +98,6 @@ final class SocketServer
     {
         int spawnWorkers()
         {
-            import core.thread;
-
             logTrace("Starting SocketServer in Threading mode");
 
             Thread[] threads;
@@ -107,33 +106,26 @@ final class SocketServer
             size_t nWorkers = (_listeners.length * _tunables.workers);
             workers.reserve(nWorkers);
 
+            scope (exit)
+                foreach (worker; workers)
+                    worker.shutdown();
+
             foreach (SocketListener listener; _listeners)
             {
                 listener.listen(_tunables.backlog);
 
                 foreach (i; 0 .. _tunables.workers)
-                {
-                    threads ~= (function(size_t id, SocketListener listener, ref Worker[] workers) {
-                        auto worker = new Worker(listener, id);
-                        workers ~= worker;
-                        return new Thread(&worker.run);
-                    })(threads.length, listener, workers);
-                }
+                    threads ~= spawnWorkerThread(threads.length, listener, _tunables, workers);
             }
-
-            scope (exit)
-                foreach (SocketListener listener; _listeners)
-                    listener.ensureShutdownClosed();
 
             // setup signal handlers (if requested)
             if (_tunables.setupSignalHandlers)
             {
-                setupSignalHandlers(delegate() nothrow @nogc {
-                    foreach (worker; workers)
-                        worker.shutdown();
+                import socketplate.signal;
 
-                    foreach (listener; _listeners)
-                        listener.ensureShutdownClosedNoLog();
+                setupSignalHandlers(delegate(int signal) @safe nothrow @nogc {
+                    // signal threads
+                    forwardSignal(signal, threads);
                 });
             }
 
@@ -155,6 +147,18 @@ final class SocketServer
             }
 
             return (error) ? 1 : 0;
+        }
+
+        static Thread spawnWorkerThread(
+            size_t id,
+            SocketListener listener,
+            const SocketServerTunables tunables,
+            ref Worker[] workers
+        )
+        {
+            auto worker = new Worker(listener, id, tunables.setupSignalHandlers);
+            workers ~= worker;
+            return new Thread(&worker.run);
         }
     }
 }
@@ -220,42 +224,5 @@ private Address toPhobos(SocketAddress sockAddr)
     catch (AddressException ex)
     {
         assert(false, "Invalid address: " ~ ex.msg);
-    }
-}
-
-private
-{
-    alias SignalFunc = void delegate() nothrow @nogc;
-
-    static SignalFunc _gracefulShutdownImpl;
-    extern (C) void _gracefulShutdown(int) nothrow @nogc
-    {
-        _gracefulShutdownImpl();
-    }
-
-    void setupSignalHandlers(SignalFunc gracefulShutdown)
-    {
-        _gracefulShutdownImpl = gracefulShutdown;
-
-        logTrace("Setting up signal handlers");
-
-        version (Posix)
-        {
-            import core.sys.posix.signal;
-
-            () @trusted {
-                signal(SIGINT, &_gracefulShutdown);
-                signal(SIGTERM, &_gracefulShutdown);
-            }();
-        }
-        version (Windows)
-        {
-            // SetConsoleCtrlHandler(…);
-            logError("ConsoleCtrlHandler not implemented yet");
-        }
-        else
-        {
-            logError("Signal handlers either not available on or implemented for this platform.");
-        }
     }
 }

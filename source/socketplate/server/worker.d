@@ -8,7 +8,9 @@ import socketplate.connection;
 import socketplate.log;
 import std.conv : to;
 import std.string : format;
-import std.socket : Address, socket_t, Socket, SocketShutdown;
+import std.socket : Address, Socket, SocketShutdown;
+
+@safe:
 
 final class SocketListener
 {
@@ -28,6 +30,7 @@ final class SocketListener
         Socket _socket;
         Address _address;
         ConnectionHandler _callback;
+        static Socket _accepted = null;
     }
 
     public this(Socket socket, Address address, ConnectionHandler callback) pure nothrow @nogc
@@ -60,17 +63,19 @@ final class SocketListener
         _state = State.listening;
     }
 
-    public void accept(size_t workerID)
+    private void accept(size_t workerID)
     in (_state == State.listening)
     {
-        logTrace(format!"Accepting incoming connections (#%X @%02d)"(_socket.handle, workerID));
-        Socket accepted = _socket.accept();
+        import std.socket : socket_t;
 
-        socket_t acceptedID = accepted.handle;
+        logTrace(format!"Accepting incoming connections (#%X @%02d)"(_socket.handle, workerID));
+        _accepted = _socket.accept();
+
+        socket_t acceptedID = _accepted.handle;
 
         logTrace(format!"Incoming connection accepted (#%X @%02d)"(acceptedID, workerID));
         try
-            _callback(SocketConnection(accepted));
+            _callback(SocketConnection(_accepted));
         catch (Exception ex)
             logError(
                 format!"Unhandled Exception in connection handler (#%X): %s"(acceptedID, ex.msg)
@@ -78,10 +83,10 @@ final class SocketListener
 
         logTrace(format!"Connection handled (#%X)"(acceptedID));
 
-        if (accepted.isAlive)
+        if (_accepted.isAlive)
         {
             logTrace(format!"Closing still-alive connection (#%X)"(acceptedID));
-            accepted.close();
+            _accepted.close();
         }
     }
 
@@ -99,7 +104,7 @@ final class SocketListener
         _state = State.closed;
     }
 
-    public void ensureShutdownClosed()
+    private void ensureShutdownClosed()
     {
         if (_state == State.closed)
             return;
@@ -107,12 +112,21 @@ final class SocketListener
         shutdownClose!true();
     }
 
-    public void ensureShutdownClosedNoLog() nothrow @nogc
+    private void ensureShutdownClosedNoLog() nothrow @nogc
     {
         if (_state == State.closed)
             return;
 
         shutdownClose!false();
+    }
+
+    private void shutdownAccepted() nothrow @nogc
+    {
+        if (_accepted is null)
+            return;
+
+        _accepted.shutdown(SocketShutdown.BOTH);
+        _accepted.close();
     }
 }
 
@@ -126,23 +140,52 @@ class Worker
 
         size_t _id;
         SocketListener _listener;
+        bool _setupSignalHandlers;
     }
 
-    public this(SocketListener listener, size_t id = 0)
+    public this(SocketListener listener, size_t id, bool setupSignalHandlers)
     {
         _listener = listener;
         _id = id;
+        _setupSignalHandlers = setupSignalHandlers;
     }
 
     public void run()
     {
+        import std.socket : SocketException;
+
+        if (_setupSignalHandlers)
+            doSetupSignalHandlers();
+
+        scope (exit)
+        {
+            logInfo(format!"Worker @%02d exiting"(_id));
+            _listener.ensureShutdownClosed();
+        }
+
         _active.atomicStore = true;
         while (atomicLoad(_active))
-            _listener.accept(_id);
+        {
+            try
+                _listener.accept(_id);
+            catch (SocketException)
+                break;
+        }
     }
 
     public void shutdown() nothrow @nogc
     {
         _active.atomicStore = false;
+    }
+
+    private void doSetupSignalHandlers()
+    {
+        import socketplate.signal;
+
+        setupSignalHandlers((int) @safe nothrow @nogc {
+            this.shutdown();
+            this._listener.ensureShutdownClosedNoLog();
+            this._listener.shutdownAccepted();
+        });
     }
 }
