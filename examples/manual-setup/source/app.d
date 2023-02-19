@@ -2,15 +2,22 @@ import socketplate.app;
 
 int main(string[] args) @safe
 {
-    return runSocketplateApp("Socketplate TCP Example", args, delegate(SocketServer server) {
-        ConnectionHandler handler = delegate(SocketConnection connection) {
-            ubyte[] b = new ubyte[](1);
+    return runSocketplateApp("Socketplate TCP Example", args, delegate(SocketServer server)
+    {
+        ConnectionHandler handler = delegate(SocketConnection connection)
+        {
+            ubyte[] b = new ubyte[](256);
             while (true)
             {
                 ptrdiff_t received = connection.receive(b);
+
+                if (received == socketERROR)
+                    return;
+
                 if (received == 0)
                     return connection.close();
-                connection.send(b);
+
+                connection.send(b[0 .. received]);
             }
         };
 

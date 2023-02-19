@@ -4,7 +4,7 @@ int main(string[] args) @safe
 {
     return runSocketplateAppTCP("Socketplate TCP Echo Example", args, delegate(SocketConnection connection)
     {
-        ubyte[] b = new ubyte[](1);
+        ubyte[] b = new ubyte[](256);
 
         while (true)
         {

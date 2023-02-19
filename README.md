@@ -11,7 +11,7 @@ int main(string[] args) @safe
 {
     return runSocketplateAppTCP("Simple echo server", args, delegate(SocketConnection connection)
     {
-        ubyte[] buffer = new ubyte[](1);
+        ubyte[] buffer = new ubyte[](256);
 
         while (true) {
             ubyte[] receivedData = connection.receiveSlice(buffer);
