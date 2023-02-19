@@ -23,6 +23,26 @@
     Workers are spawned automatically as needed by [socketplate.server.server.SocketServer.run|SocketServer.run].
     This function enables listening on all sockets as well.
 
+    #### Server + main thread
+
+    The server will usually run from the main thead.
+
+    $(TIP
+        If it is supposed run from another thread,
+        either disable signal handler setup (see Tunables)
+        or forward SIGINT and SIGTERM to the server thread (see [socketplate.signal.forwardSignal()]).
+    )
+
+    After starting the worker threads, the server will join them.
+    It will eventually exit, once all workers have stopped.
+    Unhandled exceptions in any of the workers will be indicated by `SocketServer.run` returning a non-zero status value.
+    Obviously they cannot be rethrown by server as this would probably crash the whole server,
+    despite Exceptions not being meant to signal logic errors.
+
+    If signal handling is enabled, the server will initiate a graceful shutdown on SIGINT and SIGTERM.
+    Those signals get forwarded to worker threads, so that they can gracefully close sockets as well.
+    This is especially relevant for accepted sockets (that execute their connection handlers).
+
     #### Workers
 
     Workers are implemented as $(B threads).
@@ -39,7 +59,9 @@
 
     Total number of workers = `listeners × tunables.workers`
 
-    The `shutdown` method of workers will be used for graceful shutdown in the future.
+    The `shutdown` method of workers is used for graceful shutdown of them.
+
+    The [socketplate.server.worker|worker module] relies a lot on `module private` functions.
 
     #### Listeners
 
@@ -50,8 +72,12 @@
 
     `accept` is called in the worker’s loop until the worker is shut down.
 
-    `ensureShutdownClosed` is called by the server before exiting
+    `ensureShutdownClosed`
+    is called by the worker before exiting
     and shuts down and closes the listener’s socket (if still open).
+
+    `shutdownAccepted`
+    shuts down and closes the worker’s (in fact: listener’s) currently accepted connection if applicable.
  +/
 module socketplate.server;
 
