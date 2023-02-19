@@ -66,6 +66,71 @@ alias logFatalAndCrash = defaultLogFunction!(LogLevel.fatal);
 alias log = logInfo;
 
 /++
+    Logs an exception (including a stack trace)
+ +/
+void logException(LogLevel logLevel = LogLevel.error, LogLevel details = LogLevel.trace)(
+    Throwable exception,
+    string description = "Exception",
+    int line = __LINE__,
+    string file = __FILE__,
+    string funcName = __FUNCTION__,
+    string prettyFuncName = __PRETTY_FUNCTION__,
+    string moduleName = __MODULE__,
+)
+@safe
+{
+    import std.logger : log;
+    import std.string : format;
+
+    log(
+        logLevel,
+        line, file, funcName, prettyFuncName, moduleName,
+        format!"%s: %s"(description, exception.msg)
+    );
+
+    try
+    {
+        log(
+            details,
+            line, file, funcName, prettyFuncName, moduleName,
+            format!"Details: %s"(() @trusted { return exception.toString(); }())
+        );
+    }
+    catch (Exception ex)
+    {
+        logTrace(format!"Failed to log details: %s"(ex.msg));
+    }
+}
+
+///
+unittest
+{
+    try
+    {
+        // …
+    }
+    catch (Exception ex)
+    {
+        logException(ex, "Operation XY failed.");
+    }
+
+}
+
+///
+unittest
+{
+    try
+    {
+        // …
+    }
+    catch (Exception ex)
+    {
+        logException!(LogLevel.trace)(ex);
+    }
+
+}
+
+/++
     Sets the [LogLevel] of the default logger (also known as `sharedLog`)
  +/
 void setLogLevel(LogLevel logLevel)
