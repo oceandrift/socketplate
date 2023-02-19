@@ -2,22 +2,24 @@
 
 Puts the “fun” in **socket programming**.
 
-## TCP echo server example
+## Example: TCP echo server
 
 ```d
 import socketplate.app;
 
-int main(string[] args) @safe {
-    return runSocketplateAppTCP("Simple echo server", args, delegate(SocketConnection connection) {
+int main(string[] args) @safe
+{
+    return runSocketplateAppTCP("Simple echo server", args, delegate(SocketConnection connection)
+    {
         ubyte[] buffer = new ubyte[](1);
 
         while (true) {
-            ptrdiff_t received = connection.receive(buffer);
+            ubyte[] receivedData = connection.receiveSlice(buffer);
 
-            if (received <= 0)
+            if (receivedData.length == 0)
                 return connection.close();
 
-            connection.send(buffer);
+            connection.send(receivedData);
         }
     });
 }

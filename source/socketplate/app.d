@@ -146,7 +146,8 @@
         auto bytesReceived = connection.receive(buffer);
 
         if (bytesReceived <= 0) {
-            // connection closed (or timed out)
+            // connection either got closed or timed out,
+            // or an error ocurred
             return;
         }
 
@@ -157,9 +158,32 @@
     }
     ---
 
+    ---
+    delegate(SocketConnection connection)
+    {
+        // allocate a new buffer (with a size of 256 bytes)
+        ubyte[] buffer = new ubyte[](256)
+
+        // read data into the buffer
+        // note: `receiveSlice` throws on error
+        ubyte[] data = connection.receiveSlice(buffer);
+
+        if (data.length == 0) {
+            // nothing received, connection got closed remotely
+            return;
+        }
+
+        // do something…
+    }
+    ---
+
     ### Logging
 
     See [socketplate.log] for details.
+
+    ---
+    logInfo("My log message");
+    ---
  +/
 module socketplate.app;
 

@@ -8,12 +8,12 @@ int main(string[] args) @safe
 
         while (true)
         {
-            ptrdiff_t received = connection.receive(b);
+            ubyte[] received = connection.receiveSlice(b);
 
-            if (received <= 0)
+            if (received.length == 0)
                 return connection.close();
 
-            connection.send(b);
+            connection.send(received);
         }
     });
 }
