@@ -31,6 +31,24 @@ struct SocketConnection
     }
 
     /++
+        Determines whether the socket is still alive
+     +/
+    bool isAlive() const
+    {
+        return _socket.isAlive;
+    }
+
+    /++
+        Determines whether there is still data to be received
+     +/
+    bool empty()
+    {
+        ubyte[1] tmp;
+        immutable ptrdiff_t bytesReceived = _socket.receive(tmp, SocketFlags.PEEK);
+        return (bytesReceived == 0);
+    }
+
+    /++
         Closes the connection
      +/
     void close() nothrow @nogc
@@ -161,5 +179,23 @@ struct SocketConnection
 
             bufferLeft = bufferLeft[bytesSent .. $];
         }
+    }
+
+    ///
+    Address remoteAddress()
+    {
+        return _socket.remoteAddress;
+    }
+
+    ///
+    Address localAddress()
+    {
+        return _socket.localAddress;
+    }
+
+    ///
+    string popCurrentError()
+    {
+        return _socket.getErrorText();
     }
 }
