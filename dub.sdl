@@ -1,5 +1,5 @@
 name "socketplate"
-description "Boilerplate socket server"
+description "Straightforward socket server: Puts the “fun” in socket programming + built-in CLI"
 
 copyright "Copyright © 2023  Elias Batek"
 license "BSL-1.0"
