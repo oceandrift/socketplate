@@ -50,11 +50,14 @@ final class SocketListener
         return (_state == State.closed);
     }
 
-    public void bind()
+    public void bind(bool socketOptionREUSEADDR = true)
     in (_state == State.initial)
     {
         // unlink Unix Domain Socket file if applicable
         unlinkUnixDomainSocket(_address);
+
+        // enable address reuse
+        _socket.setReuseAddr = socketOptionREUSEADDR;
 
         logTrace(format!"Binding to %s (#%X)"(_address.toString, _socket.handle));
         _socket.bind(_address);
@@ -204,6 +207,13 @@ private SocketConnection makeSocketConnection(Socket socket, int seconds)
     auto sc = SocketConnection(socket);
     sc.timeout!(Direction.receive)(seconds);
     return sc;
+}
+
+private void setReuseAddr(Socket socket, bool enable)
+{
+    import std.socket : SocketOption, SocketOptionLevel;
+
+    socket.setOption(SocketOptionLevel.SOCKET, SocketOption.REUSEADDR, enable);
 }
 
 private void unlinkUnixDomainSocket(Address addr)

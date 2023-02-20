@@ -82,10 +82,10 @@ final class SocketServer
         }
 
         ///
-        void bind()
+        void bind(bool socketOptionREUSEADDR = true)
         {
             foreach (listener; _listeners)
-                listener.bind();
+                listener.bind(socketOptionREUSEADDR);
         }
 
         void registerListener(SocketListener listener)
