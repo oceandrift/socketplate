@@ -25,8 +25,8 @@ struct SocketConnection
         Socket _socket;
     }
 
-    @disable this();
-    @disable this(this);
+    @disable private this();
+    @disable private this(this);
 
     this(Socket socket) pure nothrow @nogc
     {
@@ -42,13 +42,13 @@ struct SocketConnection
     }
 
     /++
-        Determines whether there is still data to be received
+        Determines whether there is no more data to be received
      +/
     bool empty()
     {
         ubyte[1] tmp;
         immutable ptrdiff_t bytesReceived = _socket.receive(tmp, SocketFlags.PEEK);
-        return (bytesReceived == 0);
+        return ((bytesReceived == 0) || (bytesReceived == socketERROR));
     }
 
     /++

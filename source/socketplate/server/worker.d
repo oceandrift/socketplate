@@ -160,6 +160,9 @@ class Worker
     {
         import std.socket : SocketException;
 
+        scope (exit)
+            logTrace(format!"Worker @%02d says goodbye"(_id));
+
         if (_setupSignalHandlers)
             doSetupSignalHandlers();
 
