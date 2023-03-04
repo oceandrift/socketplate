@@ -282,6 +282,21 @@ int runSocketplateAppTCP(
             if (!parseSocketAddress(socket, parsed))
                 throw new Exception("Invalid listening address: `" ~ socket ~ "`");
 
+            final switch (parsed.type) with (SocketAddress.Type)
+            {
+            case invalid:
+                assert(false);
+            case unixDomain:
+                break;
+            case ipv4:
+            case ipv6:
+                if (parsed.port <= 0)
+                    throw new Exception(
+                        "Invalid listening address (invalid/missing port): `" ~ socket ~ "`"
+                    );
+                break;
+            }
+
             server.listenTCP(parsed, tcpConnectionHandler);
         }
     };
