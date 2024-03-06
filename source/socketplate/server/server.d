@@ -7,37 +7,13 @@ import core.thread;
 import socketplate.address;
 import socketplate.connection;
 import socketplate.log;
+import socketplate.server.pool;
+import socketplate.server.tunables;
 import socketplate.server.worker;
 import std.format;
 import std.socket;
 
 @safe:
-
-/++
-    Options to tailor the socket server to your needs
- +/
-struct SocketServerTunables
-{
-    /++
-        Listening backlog
-     +/
-    int backlog = SOMAXCONN;
-
-    /++
-        Receive/read timeout
-     +/
-    int timeout = 60;
-
-    /++
-        Number of workers per listener
-     +/
-    int workers = 2;
-
-    /++
-        Whether to set up signal handlers
-     +/
-    bool setupSignalHandlers = true;
-}
 
 ///
 final class SocketServer
@@ -69,6 +45,11 @@ final class SocketServer
         ///
         int run()
         {
+            scope (exit)
+            {
+                logTrace("Exiting (Main Thread)");
+            }
+
             if (_listeners.length == 0)
             {
                 logWarning("There are no listeners, hence no workers to spawn.");
@@ -76,9 +57,8 @@ final class SocketServer
             }
 
             logTrace("Running");
-            int x = spawnWorkers();
-            logTrace("Exiting (Main Thread)");
-            return x;
+            auto pool = new WorkerPool(_tunables, _listeners);
+            return pool.run();
         }
 
         ///
@@ -91,74 +71,6 @@ final class SocketServer
         void registerListener(SocketListener listener)
         {
             _listeners ~= listener;
-        }
-    }
-
-    private
-    {
-        int spawnWorkers()
-        {
-            logTrace("Starting SocketServer in Threading mode");
-
-            Thread[] threads;
-            Worker[] workers;
-
-            size_t nWorkers = (_listeners.length * _tunables.workers);
-            workers.reserve(nWorkers);
-
-            scope (exit)
-                foreach (worker; workers)
-                    worker.shutdown();
-
-            foreach (SocketListener listener; _listeners)
-            {
-                listener.listen(_tunables.backlog);
-
-                foreach (i; 0 .. _tunables.workers)
-                    threads ~= spawnWorkerThread(threads.length, listener, _tunables, workers);
-            }
-
-            // setup signal handlers (if requested)
-            if (_tunables.setupSignalHandlers)
-            {
-                import socketplate.signal;
-
-                setupSignalHandlers(delegate(int signal) @safe nothrow @nogc {
-                    // signal threads
-                    forwardSignal(signal, threads);
-                });
-            }
-
-            // start worker threads
-            foreach (Thread thread; threads)
-                function(Thread thread) @trusted { thread.start(); }(thread);
-
-            bool error = false;
-
-            // wait for workers to exit
-            foreach (thread; threads)
-            {
-                function(Thread thread, ref error) @trusted {
-                    try
-                        thread.join();
-                    catch (Exception)
-                        error = true;
-                }(thread, error);
-            }
-
-            return (error) ? 1 : 0;
-        }
-
-        static Thread spawnWorkerThread(
-            size_t id,
-            SocketListener listener,
-            const SocketServerTunables tunables,
-            ref Worker[] workers
-        )
-        {
-            auto worker = new Worker(listener, id, tunables.setupSignalHandlers);
-            workers ~= worker;
-            return new Thread(&worker.run);
         }
     }
 }

@@ -196,6 +196,7 @@ public import socketplate.address;
 public import socketplate.connection;
 public import socketplate.log;
 public import socketplate.server.server;
+public import socketplate.server.tunables;
 
 @safe:
 
@@ -315,6 +316,8 @@ private
     )
     {
         int workers = int.min;
+        int workersMax = int.min;
+        string strategy = null;
         string username = null;
         string groupname = null;
         bool verbose = false;
@@ -326,6 +329,8 @@ private
                 args,
                 opts,
                 "w|workers", "Number of workers to start", &workers,
+                "m|workers-max", "Maximum number of workers to spawn", &workersMax,
+                "strategy", "Spawning-strategy applied when starting workers", &strategy,
                 "u|user", "(Privileges dropping) user/uid", &username,
                 "g|group", "(Privileges dropping) group/gid", &groupname,
                 "v|verbose", "Enable debug output", &verbose,
@@ -363,6 +368,37 @@ private
             }
 
             tunables.workers = workers;
+        }
+
+        // apply `--workers-max` if applicable
+        if (workersMax != int.min)
+        {
+            if (workersMax < 1)
+            {
+                logCritical(format!"Invalid --workers-max count: %d"(workersMax));
+                return 1;
+            }
+
+            tunables.workersMax = workersMax;
+        }
+
+        // apply `--strategy` if applicable
+        if (strategy !is null)
+        {
+            switch (strategy)
+            {
+            default:
+                logCritical(format!"Invalid --strategy: %s"(strategy));
+                return 1;
+
+            case "static":
+                tunables.workerSpawningStrategy = SpawningStrategy.static_;
+                break;
+
+            case "dynamic":
+                tunables.workerSpawningStrategy = SpawningStrategy.dynamic;
+                break;
+            }
         }
 
         // print app name before further setup

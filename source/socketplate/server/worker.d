@@ -12,6 +12,44 @@ import std.socket : Address, Socket, SocketShutdown;
 
 @safe:
 
+package(socketplate.server) final class PoolCommunicator
+{
+    import core.atomic;
+
+    private
+    {
+        shared(int) _startedWorkers = 0;
+        shared(int) _occupiedWorkers = 0;
+    }
+
+@safe nothrow @nogc:
+
+    void notifyStarted()
+    {
+        _startedWorkers.atomicOp!"+="(1);
+    }
+
+    void notifyDoing()
+    {
+        _occupiedWorkers.atomicOp!"+="(1);
+    }
+
+    void notifyDone()
+    {
+        _occupiedWorkers.atomicOp!"-="(1);
+    }
+
+    int statusStarted() const
+    {
+        return atomicLoad(_startedWorkers);
+    }
+
+    int status() const
+    {
+        return atomicLoad(_occupiedWorkers);
+    }
+}
+
 final class SocketListener
 {
 @safe:
@@ -72,13 +110,17 @@ final class SocketListener
         _state = State.listening;
     }
 
-    private void accept(size_t workerID)
+    private void accept(size_t workerID, PoolCommunicator poolComm)
     in (_state == State.listening)
     {
         import std.socket : socket_t;
 
         logTrace(format!"Accepting incoming connections (#%X @%02d)"(_socket.handle, workerID));
         _accepted = _socket.accept();
+
+        poolComm.notifyDoing();
+        scope (exit)
+            poolComm.notifyDone();
 
         socket_t acceptedID = _accepted.handle;
 
@@ -139,7 +181,7 @@ final class SocketListener
     }
 }
 
-class Worker
+final class Worker
 {
 @safe:
 
@@ -149,11 +191,13 @@ class Worker
 
         size_t _id;
         SocketListener _listener;
+        PoolCommunicator _poolComm;
         bool _setupSignalHandlers;
     }
 
-    public this(SocketListener listener, size_t id, bool setupSignalHandlers)
+    public this(PoolCommunicator poolComm, SocketListener listener, size_t id, bool setupSignalHandlers)
     {
+        _poolComm = poolComm;
         _listener = listener;
         _id = id;
         _setupSignalHandlers = setupSignalHandlers;
@@ -162,6 +206,8 @@ class Worker
     public void run()
     {
         import std.socket : SocketException;
+
+        _poolComm.notifyStarted();
 
         scope (exit)
             logTrace(format!"Worker @%02d says goodbye"(_id));
@@ -179,7 +225,7 @@ class Worker
         while (atomicLoad(_active))
         {
             try
-                _listener.accept(_id);
+                _listener.accept(_id, _poolComm);
             catch (SocketException)
                 break;
         }
