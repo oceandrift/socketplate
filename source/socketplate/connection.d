@@ -273,9 +273,12 @@ class SocketUnexpectedEndOfDataException : SocketException {
 ///
 enum Direction {
     ///
-    none = 0b00, ///
-    receive = 0b01, ///
-    send = 0b10, ///
+    none = 0b00,
+    ///
+    receive = 0b01,
+    ///
+    send = 0b10,
+    ///
     both = (receive | send),
 }
 
@@ -294,17 +297,21 @@ private {
     void setTimeout(Direction direction)(Socket socket, long seconds) if (direction != Direction.none) {
         import std.datetime : durSeconds = seconds;
 
-        static if (direction == Direction.both) {
+        final switch (direction) with (Direction) {
+        case none:
+            assert(false, "Bug");
+        case both:
             setTimeout!(Direction.send)(socket, seconds);
             setTimeout!(Direction.receive)(socket, seconds);
-        } else static if (direction == Direction.receive) {
+            break;
+        case receive:
             logTrace(format!"Setting receive timeout to %d seconds (#%X)"(seconds, socket.handle));
             socket.setOption(SocketOptionLevel.SOCKET, SocketOption.RCVTIMEO, durSeconds(seconds));
-        } else static if (direction == Direction.send) {
+            break;
+        case send:
             logTrace(format!"Setting send timeout to %d seconds (#%X)"(seconds, socket.handle));
             socket.setOption(SocketOptionLevel.SOCKET, SocketOption.SNDTIMEO, durSeconds(seconds));
-        } else {
-            static assert(false, "Bug");
+            break;
         }
     }
 }
