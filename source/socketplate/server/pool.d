@@ -144,7 +144,7 @@ final class WorkerPool {
             }
         }
 
-        // Scans threads for exited ones
+        // Scans threads for non-exited ones
         bool scanThreads() {
             foreach (thread; _threads) {
                 immutable bool isRunning = (() @trusted => thread.isRunning)();
