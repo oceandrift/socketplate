@@ -229,8 +229,7 @@ int runSocketplateApp(
     string[] args,
     void delegate(SocketServer) @safe setupCallback,
     SocketServerTunables defaults = SocketServerTunables(),
-)
-{
+) {
     // “Manual handler setup” mode
     return runSocketplateAppImpl(appName, args, setupCallback, defaults);
 }
@@ -242,8 +241,7 @@ int runSocketplateAppTCP(
     ConnectionHandler tcpConnectionHandler,
     string[] defaultListeningAddresses = null,
     SocketServerTunables defaults = SocketServerTunables(),
-)
-{
+) {
     // “Single connection handler” mode
 
     // This function adds a “listening addresses” parameter `-S` (aka `--serve`) to getopt options.
@@ -257,18 +255,15 @@ int runSocketplateAppTCP(
     // setup listeners for the requested listening addresses (or default addresses)
     auto setupCallback = delegate(SocketServer server) @safe {
         // no listening address requested?
-        if (sockets.length == 0)
-        {
+        if (sockets.length == 0) {
             // no default address(es) provided?
-            if (defaultListeningAddresses.length == 0)
-            {
+            if (defaultListeningAddresses.length == 0) {
                 logError("No listening addresses specified. Use --serve= ");
                 return;
             }
 
             // use default address(es) instead
-            foreach (sockAddr; defaultListeningAddresses)
-            {
+            foreach (sockAddr; defaultListeningAddresses) {
                 logTrace("Will listen on default address: " ~ sockAddr);
                 server.listenTCP(sockAddr, tcpConnectionHandler);
             }
@@ -277,14 +272,13 @@ int runSocketplateAppTCP(
         }
 
         // parse requested listening addresses and register listeners
-        foreach (socket; sockets)
-        {
+        foreach (socket; sockets) {
             SocketAddress parsed;
-            if (!parseSocketAddress(socket, parsed))
+            if (!parseSocketAddress(socket, parsed)) {
                 throw new Exception("Invalid listening address: `" ~ socket ~ "`");
+            }
 
-            final switch (parsed.type) with (SocketAddress.Type)
-            {
+            final switch (parsed.type) with (SocketAddress.Type) {
             case invalid:
                 assert(false);
             case unixDomain:
@@ -305,16 +299,14 @@ int runSocketplateAppTCP(
     return runSocketplateAppImpl(appName, args, setupCallback, defaults, "S|serve", "Socket(s) to listen on", &sockets);
 }
 
-private
-{
+private {
     int runSocketplateAppImpl(Opts...)(
         string appName,
         string[] args,
         void delegate(SocketServer) @safe setupCallback,
         SocketServerTunables defaults,
         Opts opts,
-    )
-    {
+    ) {
         int workers = int.min;
         int workersMax = int.min;
         string strategy = null;
@@ -324,7 +316,7 @@ private
 
         // process `args` (usually command line options)
         GetoptResult getOptR;
-        try
+        try {
             getOptR = getopt(
                 args,
                 opts,
@@ -335,8 +327,7 @@ private
                 "g|group", "(Privileges dropping) group/gid", &groupname,
                 "v|verbose", "Enable debug output", &verbose,
             );
-        catch (GetOptException ex)
-        {
+        } catch (GetOptException ex) {
             import std.stdio : stderr;
 
             // bad option (or similar issue)
@@ -345,8 +336,7 @@ private
         }
 
         // `--help`?
-        if (getOptR.helpWanted)
-        {
+        if (getOptR.helpWanted) {
             defaultGetoptPrinter(appName, getOptR.options);
             return 0;
         }
@@ -359,10 +349,8 @@ private
         SocketServerTunables tunables = defaults;
 
         // apply `--workers` if applicable
-        if (workers != int.min)
-        {
-            if (workers < 1)
-            {
+        if (workers != int.min) {
+            if (workers < 1) {
                 logCritical(format!"Invalid --workers count: %d"(workers));
                 return 1;
             }
@@ -371,10 +359,8 @@ private
         }
 
         // apply `--workers-max` if applicable
-        if (workersMax != int.min)
-        {
-            if (workersMax < 1)
-            {
+        if (workersMax != int.min) {
+            if (workersMax < 1) {
                 logCritical(format!"Invalid --workers-max count: %d"(workersMax));
                 return 1;
             }
@@ -383,10 +369,8 @@ private
         }
 
         // apply `--strategy` if applicable
-        if (strategy !is null)
-        {
-            switch (strategy)
-            {
+        if (strategy !is null) {
+            switch (strategy) {
             default:
                 logCritical(format!"Invalid --strategy: %s"(strategy));
                 return 1;
@@ -406,12 +390,10 @@ private
         auto server = new SocketServer(tunables);
 
         // do setup, if non-null callback provided
-        if (setupCallback !is null)
-        {
-            try
+        if (setupCallback !is null) {
+            try {
                 setupCallback(server);
-            catch (Exception ex)
-            {
+            } catch (Exception ex) {
                 logTrace("Unhandled exception thrown in setup callback");
                 logError(ex.msg);
                 return 1;
@@ -422,27 +404,24 @@ private
         server.bind();
 
         // drop privileges
-        if (!dropPrivs(username, groupname))
+        if (!dropPrivs(username, groupname)) {
             return 1;
+        }
 
         // let’s go
         return server.run();
     }
 
-    bool dropPrivs(string username, string groupname)
-    {
+    bool dropPrivs(string username, string groupname) {
         import socketplate.privdrop;
 
-        version (Posix)
-        {
+        version (Posix) {
             auto privilegesDropTo = Privileges();
 
             // user specified?
-            if (username !is null)
-            {
+            if (username !is null) {
                 uid_t uid;
-                if (!resolveUsername(username, uid))
-                {
+                if (!resolveUsername(username, uid)) {
                     logCritical(format!"Could not resolve username: %s"(username));
                     return false;
                 }
@@ -451,11 +430,9 @@ private
             }
 
             // group specified?
-            if (groupname !is null)
-            {
+            if (groupname !is null) {
                 gid_t gid;
-                if (!resolveGroupname(groupname, gid))
-                {
+                if (!resolveGroupname(groupname, gid)) {
                     logCritical(format!"Could not resolve groupname: %s"(groupname));
                     return false;
                 }
@@ -464,14 +441,15 @@ private
             }
 
             // log applicable target user + group
-            if (!privilegesDropTo.user.isNull)
+            if (!privilegesDropTo.user.isNull) {
                 logInfo(format!"Dropping privileges: uid=%d"(privilegesDropTo.user.get));
-            if (!privilegesDropTo.group.isNull)
+            }
+            if (!privilegesDropTo.group.isNull) {
                 logInfo(format!"Dropping privileges: gid=%d"(privilegesDropTo.group.get));
+            }
 
             // drop privileges
-            if (!dropPrivileges(privilegesDropTo))
-            {
+            if (!dropPrivileges(privilegesDropTo)) {
                 // oh no
                 logCritical("Dropping privileges failed.");
                 return false;
@@ -483,25 +461,23 @@ private
             enum uid_t rootUid = 0;
             enum gid_t rootGid = 0;
 
-            if (current.user.get == rootUid)
+            if (current.user.get == rootUid) {
                 logWarning("Running as uid=0 (superuser/root)");
-            if (current.group.get == rootGid)
+            }
+            if (current.group.get == rootGid) {
                 logWarning("Running as gid=0 (superuser/root)");
+            }
 
             return true;
-        }
-        else
-        {
+        } else {
             // privilege dropping not implemented on this platform (e.g. on Windows)
 
-            if (username !is null)
-            {
+            if (username !is null) {
                 logCritical("Privilege dropping is not supported (on this platform).");
                 return false;
             }
 
-            if (groupname !is null)
-            {
+            if (groupname !is null) {
                 logCritical("Privilege dropping is not supported (on this platform).");
                 return false;
             }

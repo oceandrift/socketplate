@@ -8,8 +8,8 @@ import std.socket : SOMAXCONN;
 /++
     Options to tailor the socket server to your needs
  +/
-struct SocketServerTunables
-{
+struct SocketServerTunables {
+
     /++
         Listening backlog
      +/
@@ -46,8 +46,8 @@ struct SocketServerTunables
 
     Each strategy has its own pros and cons.
  +/
-enum SpawningStrategy
-{
+enum SpawningStrategy {
+
     /++
         Static – A fixed number of workers gets spawned.
      +/

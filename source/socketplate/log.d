@@ -77,61 +77,46 @@ void logException(LogLevel logLevel = LogLevel.error, LogLevel details = LogLeve
     string prettyFuncName = __PRETTY_FUNCTION__,
     string moduleName = __MODULE__,
 )
-@safe nothrow
-{
+@safe nothrow {
     import std.logger : log;
     import std.string : format;
 
-    try
-    {
+    try {
         log(
             logLevel,
             line, file, funcName, prettyFuncName, moduleName,
             format!"%s: %s"(description, exception.msg)
         );
 
-        try
-        {
+        try {
             log(
                 details,
                 line, file, funcName, prettyFuncName, moduleName,
                 format!"Details: %s"(() @trusted { return exception.toString(); }())
             );
-        }
-        catch (Exception ex)
-        {
+        } catch (Exception ex) {
             logTrace(format!"Failed to log details: %s"(ex.msg));
         }
-    }
-    catch (Exception)
-    {
+    } catch (Exception) {
         // suppress
     }
 }
 
 ///
-unittest
-{
-    try
-    {
+unittest {
+    try {
         // …
-    }
-    catch (Exception ex)
-    {
+    } catch (Exception ex) {
         logException(ex, "Operation XY failed.");
     }
 
 }
 
 ///
-unittest
-{
-    try
-    {
+unittest {
+    try {
         // …
-    }
-    catch (Exception ex)
-    {
+    } catch (Exception ex) {
         logException!(LogLevel.trace)(ex);
     }
 
@@ -140,8 +125,7 @@ unittest
 /++
     Sets the [LogLevel] of the default logger (also known as `sharedLog`)
  +/
-void setLogLevel(LogLevel logLevel)
-{
+void setLogLevel(LogLevel logLevel) {
     import std.logger : Logger, sharedLog;
 
     Logger l = (() @trusted { return (cast() sharedLog); })();

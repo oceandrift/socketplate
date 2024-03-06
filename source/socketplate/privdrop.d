@@ -7,29 +7,28 @@ import std.typecons : nullable, Nullable;
 
 @safe nothrow:
 
-version (Posix)
-{
+version (Posix) {
     public import core.sys.posix.sys.types : uid_t, gid_t;
 
     ///
-    struct Privileges
-    {
+    struct Privileges {
         Nullable!uid_t user; ///
         Nullable!gid_t group; ///
 
         ///
-        static bool resolve(string username, string groupname, out Privileges result)
-        {
+        static bool resolve(string username, string groupname, out Privileges result) {
             result = Privileges();
 
             uid_t uid;
             gid_t gid;
 
-            if (!resolveUsername(username, uid))
+            if (!resolveUsername(username, uid)) {
                 return false;
+            }
 
-            if (!resolveGroupname(groupname, gid))
+            if (!resolveGroupname(groupname, gid)) {
                 return false;
+            }
 
             result.user = uid;
             result.group = gid;
@@ -39,8 +38,7 @@ version (Posix)
     }
 
     ///
-    Privileges currentPrivileges() @nogc
-    {
+    Privileges currentPrivileges() @nogc {
         import core.sys.posix.unistd;
 
         return Privileges(
@@ -50,31 +48,32 @@ version (Posix)
     }
 
     ///
-    bool resolveUsername(string username, out uid_t result) @trusted
-    {
+    bool resolveUsername(string username, out uid_t result) @trusted {
         import core.sys.posix.pwd;
         import std.conv : to;
         import std.string : fromStringz;
 
         bool usernameCouldBeUid = true;
         uid_t usernameNumeric;
-        try
+        try {
             usernameNumeric = username.to!uid_t();
-        catch (Exception)
+        } catch (Exception) {
             usernameCouldBeUid = false;
+        }
 
-        scope (exit)
+        scope (exit) {
             endpwent();
+        }
 
-        for (passwd* db = getpwent(); db !is null; db = getpwent())
-        {
-            if (db.pw_name.fromStringz != username)
-            {
-                if (!usernameCouldBeUid)
+        for (passwd* db = getpwent(); db !is null; db = getpwent()) {
+            if (db.pw_name.fromStringz != username) {
+                if (!usernameCouldBeUid) {
                     continue;
+                }
 
-                if (db.pw_uid != usernameNumeric)
+                if (db.pw_uid != usernameNumeric) {
                     continue;
+                }
             }
 
             result = db.pw_uid;
@@ -85,25 +84,25 @@ version (Posix)
     }
 
     ///
-    bool resolveGroupname(string groupname, out gid_t result) @trusted
-    {
+    bool resolveGroupname(string groupname, out gid_t result) @trusted {
         import core.sys.posix.grp;
         import std.conv : to;
         import std.string : toStringz;
 
         group* g = getgrnam(groupname.toStringz);
-        if (g is null)
-        {
+        if (g is null) {
             gid_t groupnameNumeric;
-            try
+            try {
                 groupnameNumeric = groupname.to!gid_t;
-            catch (Exception)
+            } catch (Exception) {
                 return false;
+            }
 
             g = getgrgid(groupnameNumeric);
 
-            if (g is null)
+            if (g is null) {
                 return false;
+            }
         }
 
         result = g.gr_gid;
@@ -111,30 +110,30 @@ version (Posix)
     }
 
     ///
-    bool dropPrivileges(Privileges privileges) @nogc
-    {
-        if (!privileges.group.isNull)
-            if (!dropGroup(privileges.group.get))
+    bool dropPrivileges(Privileges privileges) @nogc {
+        if (!privileges.group.isNull) {
+            if (!dropGroup(privileges.group.get)) {
                 return false;
+            }
+        }
 
-        if (!privileges.user.isNull)
-            if (!dropUser(privileges.user.get))
+        if (!privileges.user.isNull) {
+            if (!dropUser(privileges.user.get)) {
                 return false;
+            }
+        }
 
         return true;
     }
 
-    private @nogc
-    {
-        bool dropUser(uid_t uid) @trusted
-        {
+    private @nogc {
+        bool dropUser(uid_t uid) @trusted {
             import core.sys.posix.unistd : setuid;
 
             return (setuid(uid) == 0);
         }
 
-        bool dropGroup(gid_t uid) @trusted
-        {
+        bool dropGroup(gid_t uid) @trusted {
             import core.sys.posix.unistd : setgid;
 
             return (setgid(uid) == 0);

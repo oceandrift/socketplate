@@ -15,10 +15,8 @@ import std.format;
 /++
     Configurable worker-spawning mechanism
  +/
-final class WorkerPool
-{
-    private
-    {
+final class WorkerPool {
+    private {
         SocketServerTunables _tunables;
         const bool _spawnDynamically;
         const int _configuredWorkers;
@@ -29,40 +27,32 @@ final class WorkerPool
         PoolListenerMeta[] _metas;
     }
 
-    public this(SocketServerTunables tunables, SocketListener[] listeners)
-    {
+    ///
+    public this(SocketServerTunables tunables, SocketListener[] listeners) {
         _tunables = tunables;
         _spawnDynamically = (_tunables.workerSpawningStrategy == SpawningStrategy.dynamic);
 
-        if (_spawnDynamically)
-        {
-            if (_tunables.workers > _tunables.workersMax)
-            {
+        if (_spawnDynamically) {
+            if (_tunables.workers > _tunables.workersMax) {
                 enum errorFmt = "The requested number of workers (%s) is greater than the configured maximum (%s).";
                 logError(format!errorFmt(_tunables.workers, _tunables.workersMax));
 
                 // fix workers count
                 _configuredWorkers = _tunables.workersMax;
-            }
-            else
-            {
-                if (_tunables.workers == _tunables.workersMax)
-                {
+            } else {
+                if (_tunables.workers == _tunables.workersMax) {
                     enum warningFmt = "The requested number of workers (%s) matches the configured maximum (%s).";
                     logWarning(format!warningFmt(_tunables.workers, _tunables.workersMax));
                 }
 
                 _configuredWorkers = _tunables.workers;
             }
-        }
-        else
-        {
+        } else {
             _configuredWorkers = _tunables.workers;
         }
 
         _metas.reserve(listeners.length);
-        foreach (listener; listeners)
-        {
+        foreach (listener; listeners) {
             auto poolComm = new PoolCommunicator();
             _metas ~= PoolListenerMeta(
                 listener,
@@ -75,30 +65,25 @@ final class WorkerPool
         _workers.reserve(nWorkers);
     }
 
-    public
-    {
-        int run()
-        {
+    public {
+        ///
+        int run() {
             logTrace("Starting SocketServer in Threading mode");
 
-            scope (exit)
-            {
-                foreach (worker; _workers)
-                {
+            scope (exit) {
+                foreach (worker; _workers) {
                     worker.shutdown();
                 }
             }
 
             // spawn threads
-            foreach (ref meta; _metas)
-            {
+            foreach (ref meta; _metas) {
                 meta.listener.listen(_tunables.backlog);
                 this.spawnWorkerThreads(meta, _tunables.workers);
             }
 
             // setup signal handlers (if requested)
-            if (_tunables.setupSignalHandlers)
-            {
+            if (_tunables.setupSignalHandlers) {
                 import socketplate.signal;
 
                 setupSignalHandlers(delegate(int signal) @safe nothrow @nogc {
@@ -110,14 +95,12 @@ final class WorkerPool
             }
 
             // start worker threads
-            foreach (Thread thread; _threads)
-            {
+            foreach (Thread thread; _threads) {
                 function(Thread thread) @trusted { thread.start(); }(thread);
             }
 
             // dynamic worker spawning (if applicable)
-            if (_spawnDynamically)
-            {
+            if (_spawnDynamically) {
                 this.waitForWorkersToStart();
                 this.dynamicSpawnLoop();
             }
@@ -125,15 +108,11 @@ final class WorkerPool
             bool workerError = false;
 
             // wait for workers to exit
-            foreach (thread; _threads)
-            {
+            foreach (thread; _threads) {
                 function(Thread thread, ref workerError) @trusted {
-                    try
-                    {
+                    try {
                         thread.join(true);
-                    }
-                    catch (Exception)
-                    {
+                    } catch (Exception) {
                         workerError = true;
                     }
                 }(thread, workerError);
@@ -144,22 +123,16 @@ final class WorkerPool
         }
     }
 
-    private
-    {
+    private {
         // Waits until all workers have started
-        void waitForWorkersToStart()
-        {
-            foreach (ref meta; _metas)
-            {
-                workersOfListenerStarted: while (true)
-                {
-                    if (!_noShutdownSignalReceived)
-                    {
+        void waitForWorkersToStart() {
+            foreach (ref meta; _metas) {
+                workersOfListenerStarted: while (true) {
+                    if (!_noShutdownSignalReceived) {
                         return;
                     }
 
-                    if (meta.allStarted())
-                    {
+                    if (meta.allStarted()) {
                         break workersOfListenerStarted;
                     }
 
@@ -172,13 +145,10 @@ final class WorkerPool
         }
 
         // Scans threads for exited ones
-        bool scanThreads()
-        {
-            foreach (thread; _threads)
-            {
+        bool scanThreads() {
+            foreach (thread; _threads) {
                 immutable bool isRunning = (() @trusted => thread.isRunning)();
-                if (isRunning)
-                {
+                if (isRunning) {
                     return true;
                 }
             }
@@ -188,17 +158,12 @@ final class WorkerPool
         }
 
         void dynamicSpawnLoop()
-        in (_spawnDynamically)
-        {
-            while (_noShutdownSignalReceived && this.scanThreads())
-            {
+        in (_spawnDynamically) {
+            while (_noShutdownSignalReceived && this.scanThreads()) {
                 size_t hitMax = 0;
-                foreach (idx, ref meta; _metas)
-                {
-                    if (meta.busy)
-                    {
-                        if (meta.workers >= _tunables.workersMax)
-                        {
+                foreach (idx, ref meta; _metas) {
+                    if (meta.busy) {
+                        if (meta.workers >= _tunables.workersMax) {
                             enum msg = "All workers of listener #%s are busy."
                                 ~ " Hit maximum of %s workers per listener.";
                             logTrace(format!msg(idx, _tunables.workersMax));
@@ -212,8 +177,7 @@ final class WorkerPool
                     }
                 }
 
-                if (hitMax == _metas.length)
-                {
+                if (hitMax == _metas.length) {
                     // leave monitoring loop
                     break;
                 }
@@ -225,18 +189,15 @@ final class WorkerPool
         void spawnWorkerThreads(
             ref PoolListenerMeta meta,
             int n,
-        )
-        {
-            foreach (idx; 0 .. n)
-            {
+        ) {
+            foreach (idx; 0 .. n) {
                 this.spawnWorkerThread(meta);
             }
         }
 
         Thread spawnWorkerThread(
             ref PoolListenerMeta meta,
-        )
-        {
+        ) {
             immutable id = _threads.length;
             Thread spawned = this.spawnWorkerThread(meta.comm, id, meta.listener);
             _threads ~= spawned;
@@ -249,8 +210,7 @@ final class WorkerPool
             PoolCommunicator poolComm,
             size_t id,
             SocketListener listener,
-        )
-        {
+        ) {
             auto worker = new Worker(poolComm, listener, id, _tunables.setupSignalHandlers);
             _workers ~= worker;
             return new Thread(&worker.run);
@@ -258,21 +218,18 @@ final class WorkerPool
     }
 }
 
-struct PoolListenerMeta
-{
+struct PoolListenerMeta {
     SocketListener listener;
     PoolCommunicator comm;
     int workers = 0;
 
 @safe:
 
-    bool busy() nothrow @nogc const
-    {
+    bool busy() nothrow @nogc const {
         return (comm.status >= workers);
     }
 
-    bool allStarted() nothrow @nogc const
-    {
+    bool allStarted() nothrow @nogc const {
         return (comm.statusStarted >= workers);
     }
 }

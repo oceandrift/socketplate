@@ -42,8 +42,8 @@ import std.string : indexOf;
 
 @safe pure nothrow:
 
-struct SocketAddress
-{
+///
+struct SocketAddress {
     ///
     Type type = Type.invalid;
 
@@ -54,8 +54,8 @@ struct SocketAddress
     int port = int.min;
 
     ///
-    enum Type
-    {
+    enum Type {
+        ///
         invalid = -1,
 
         /// Unix Domain Socket
@@ -83,29 +83,31 @@ struct SocketAddress
         true = on success, or
         false = on error (invalid input)
  +/
-bool parseSocketAddress(string input, out SocketAddress result)
-{
+bool parseSocketAddress(string input, out SocketAddress result) {
     // Unix Domain Socket
-    if (input[0] == '/')
+    if (input[0] == '/') {
         return parseUnixDomain(input, result);
+    }
 
     // IPv6
-    if (input[0] == '[')
+    if (input[0] == '[') {
         return parseIPv6(input, result);
+    }
 
     // IPv4
 
     // basic garbage detection
-    foreach (ref c; input)
-        if ((!c.isDigit) && (c != '.') && (c != ':'))
+    foreach (ref c; input) {
+        if ((!c.isDigit) && (c != '.') && (c != ':')) {
             return false;
+        }
+    }
 
     return parseIPv4(input, result);
 }
 
 ///
-unittest
-{
+unittest {
     SocketAddress sockAddr;
 
     assert(parseSocketAddress("127.0.0.1:8080", sockAddr));
@@ -129,61 +131,59 @@ unittest
 }
 
 ///
-SocketAddress makeSocketAddress(string address, ushort port)
-{
+SocketAddress makeSocketAddress(string address, ushort port) {
     assert(address.length >= 4, "Invalid IP address");
 
     // IPv6?
-    if (address[0] == '[')
+    if (address[0] == '[') {
         return SocketAddress(
             SocketAddress.Type.ipv6,
             address[1 .. ($ - 1)],
             port
         );
-
-    // IPv4?
-    else if (address[0].isDigit)
+    }  // IPv4?
+    else if (address[0].isDigit) {
         return SocketAddress(
             SocketAddress.Type.ipv4,
             address,
             port
         );
+    }
 
     assert(false, "Invalid IP address");
 }
 
 ///
-SocketAddress makeSocketAddress(string unixDomainSocketPath)
-{
+SocketAddress makeSocketAddress(string unixDomainSocketPath) {
     return SocketAddress(SocketAddress.Type.unixDomain, unixDomainSocketPath);
 }
 
 private:
 
-bool parseUnixDomain(string input, out SocketAddress result) @nogc
-{
+bool parseUnixDomain(string input, out SocketAddress result) @nogc {
     result = SocketAddress(SocketAddress.Type.unixDomain, input);
     return true;
 }
 
-bool parseIPv6(string input, out SocketAddress result)
-{
+bool parseIPv6(string input, out SocketAddress result) {
     immutable ptrdiff_t idxEndOfAddress = input.indexOf(']');
-    if (idxEndOfAddress < 0)
+    if (idxEndOfAddress < 0) {
         return false;
+    }
 
     int port = int.min;
 
-    if ((idxEndOfAddress + 1) < input.length)
-    {
+    if ((idxEndOfAddress + 1) < input.length) {
         string portStr = input[(idxEndOfAddress + 1) .. $];
-        if (portStr[0] != ':')
+        if (portStr[0] != ':') {
             return false;
+        }
 
         portStr = portStr[1 .. $];
         immutable portValid = parsePort(portStr, port);
-        if (!portValid)
+        if (!portValid) {
             return false;
+        }
     }
 
     immutable string address = input[1 .. idxEndOfAddress];
@@ -192,20 +192,20 @@ bool parseIPv6(string input, out SocketAddress result)
     return true;
 }
 
-bool parseIPv4(string input, out SocketAddress result)
-{
+bool parseIPv4(string input, out SocketAddress result) {
     ptrdiff_t idxPortSep = input.indexOf(':');
 
-    if (idxPortSep == 0)
+    if (idxPortSep == 0) {
         return false;
+    }
 
     int port = int.min;
 
-    if (idxPortSep > 0)
-    {
+    if (idxPortSep > 0) {
         immutable portValid = parsePort(input[(idxPortSep + 1) .. $], port);
-        if (!portValid)
+        if (!portValid) {
             return false;
+        }
     }
 
     immutable string address = (idxPortSep > 0) ? input[0 .. idxPortSep] : input;
@@ -214,12 +214,12 @@ bool parseIPv4(string input, out SocketAddress result)
     return true;
 }
 
-bool parsePort(scope string input, out int result)
-{
-    try
+bool parsePort(scope string input, out int result) {
+    try {
         result = input.to!ushort;
-    catch (Exception)
+    } catch (Exception) {
         return false;
+    }
 
     return true;
 }

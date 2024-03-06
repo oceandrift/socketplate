@@ -16,12 +16,11 @@ import std.socket;
 @safe:
 
 ///
-final class SocketServer
-{
+final class SocketServer {
+
 @safe:
 
-    private
-    {
+    private {
         SocketServerTunables _tunables;
         bool _shutdown = false;
 
@@ -29,29 +28,24 @@ final class SocketServer
     }
 
     ///
-    public this(SocketServerTunables tunables) pure nothrow @nogc
-    {
+    public this(SocketServerTunables tunables) pure nothrow @nogc {
         _tunables = tunables;
     }
 
     /// ditto
-    public this() pure nothrow @nogc
-    {
+    public this() pure nothrow @nogc {
         this(SocketServerTunables());
     }
 
-    public
-    {
+    public {
+
         ///
-        int run()
-        {
-            scope (exit)
-            {
+        int run() {
+            scope (exit) {
                 logTrace("Exiting (Main Thread)");
             }
 
-            if (_listeners.length == 0)
-            {
+            if (_listeners.length == 0) {
                 logWarning("There are no listeners, hence no workers to spawn.");
                 return 0;
             }
@@ -62,14 +56,12 @@ final class SocketServer
         }
 
         ///
-        void bind(bool socketOptionREUSEADDR = true)
-        {
+        void bind(bool socketOptionREUSEADDR = true) {
             foreach (listener; _listeners)
                 listener.bind(socketOptionREUSEADDR);
         }
 
-        void registerListener(SocketListener listener)
-        {
+        void registerListener(SocketListener listener) {
             _listeners ~= listener;
         }
     }
@@ -78,8 +70,7 @@ final class SocketServer
 /++
     Registers a new TCP listener
  +/
-void listenTCP(SocketServer server, Address address, ConnectionHandler handler)
-{
+void listenTCP(SocketServer server, Address address, ConnectionHandler handler) {
     logTrace("Registering TCP listener on ", address.toString);
 
     ProtocolType protocolType = (address.addressFamily == AddressFamily.UNIX)
@@ -96,26 +87,21 @@ void listenTCP(SocketServer server, Address address, ConnectionHandler handler)
 }
 
 /// ditto
-void listenTCP(SocketServer server, SocketAddress listenOn, ConnectionHandler handler)
-{
+void listenTCP(SocketServer server, SocketAddress listenOn, ConnectionHandler handler) {
     return listenTCP(server, listenOn.toPhobos(), handler);
 }
 
 /// ditto
-void listenTCP(SocketServer server, string listenOn, ConnectionHandler handler)
-{
+void listenTCP(SocketServer server, string listenOn, ConnectionHandler handler) {
     SocketAddress sockAddr;
     assert(parseSocketAddress(listenOn, sockAddr), "Invalid listening address");
     return listenTCP(server, sockAddr, handler);
 }
 
 // Converts a SocketAddress to an `std.socket.Address`
-private Address toPhobos(SocketAddress sockAddr)
-{
-    try
-    {
-        final switch (sockAddr.type) with (SocketAddress.Type)
-        {
+private Address toPhobos(SocketAddress sockAddr) {
+    try {
+        final switch (sockAddr.type) with (SocketAddress.Type) {
         case unixDomain:
             version (Posix)
                 return new UnixAddress(sockAddr.address);
@@ -133,9 +119,7 @@ private Address toPhobos(SocketAddress sockAddr)
         case invalid:
             assert(false, "Invalid address");
         }
-    }
-    catch (AddressException ex)
-    {
+    } catch (AddressException ex) {
         assert(false, "Invalid address: " ~ ex.msg);
     }
 }
