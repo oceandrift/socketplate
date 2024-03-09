@@ -11,6 +11,26 @@ import std.socket : SOMAXCONN;
 struct SocketServerTunables {
 
     /++
+        Defaults to apply to socket listeners registered with the server
+
+        These defaults can be overriden at registration time
+        by passing a non-nullified value to the `tunables` parameter
+        of [socketplate.server.server.listenTCP|listenTCP()].
+     +/
+    SocketListenerTunables listenerDefaults = SocketListenerTunables();
+
+    /++
+        Whether to set up signal handlers
+     +/
+    bool setupSignalHandlers = true;
+}
+
+/++
+    Options to tailor a socket listener to your needs
+ +/
+struct SocketListenerTunables {
+
+    /++
         Listening backlog
      +/
     int backlog = SOMAXCONN;
@@ -34,11 +54,6 @@ struct SocketServerTunables {
         Maximum number of workers per listener for non-static spawning-strategies
      +/
     int workersMax = 2;
-
-    /++
-        Whether to set up signal handlers
-     +/
-    bool setupSignalHandlers = true;
 }
 
 /++

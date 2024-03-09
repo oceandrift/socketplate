@@ -12,6 +12,7 @@ import socketplate.server.tunables;
 import socketplate.server.worker;
 import std.format;
 import std.socket;
+import std.typecons : Nullable;
 
 @safe:
 
@@ -22,19 +23,21 @@ final class SocketServer {
 
     private {
         SocketServerTunables _tunables;
+        SocketListenerTunables _listenerTunablesDefaults;
         bool _shutdown = false;
 
         SocketListener[] _listeners;
     }
 
     ///
-    public this(SocketServerTunables tunables) pure nothrow @nogc {
+    public this(SocketServerTunables tunables, SocketListenerTunables listenerTunablesDefaults) pure nothrow @nogc {
         _tunables = tunables;
+        _listenerTunablesDefaults = listenerTunablesDefaults;
     }
 
     /// ditto
     public this() pure nothrow @nogc {
-        this(SocketServerTunables());
+        this(SocketServerTunables(), SocketListenerTunables());
     }
 
     public {
@@ -67,32 +70,59 @@ final class SocketServer {
     }
 }
 
+///
+alias NListenerTunables = Nullable!SocketListenerTunables;
+
+/++
+    Nullified [NListenerTunables] used to instruct the server to apply its default tunable settings
+    to the the listener that is to be registered.
+ +/
+enum useServerDefaults = NListenerTunables();
+
 /++
     Registers a new TCP listener
  +/
-void listenTCP(SocketServer server, Address address, ConnectionHandler handler) {
+void listenTCP(
+    SocketServer server,
+    Address address,
+    ConnectionHandler handler,
+    NListenerTunables tunables = useServerDefaults,
+) {
     logTrace("Registering TCP listener on ", address.toString);
 
     ProtocolType protocolType = (address.addressFamily == AddressFamily.UNIX)
         ? cast(ProtocolType) 0 : ProtocolType.TCP;
 
+    SocketListenerTunables applicableTunables = (tunables.isNull)
+        ? server._listenerTunablesDefaults : tunables.get();
+
     auto listener = new SocketListener(
         new Socket(address.addressFamily, SocketType.STREAM, protocolType),
         address,
         handler,
-        server._tunables.timeout,
+        applicableTunables,
     );
 
     server.registerListener(listener);
 }
 
 /// ditto
-void listenTCP(SocketServer server, SocketAddress listenOn, ConnectionHandler handler) {
-    return listenTCP(server, listenOn.toPhobos(), handler);
+void listenTCP(
+    SocketServer server,
+    SocketAddress listenOn,
+    ConnectionHandler handler,
+    NListenerTunables tunables = useServerDefaults,
+) {
+    return listenTCP(server, listenOn.toPhobos(), handler, tunables);
 }
 
 /// ditto
-void listenTCP(SocketServer server, string listenOn, ConnectionHandler handler) {
+void listenTCP(
+    SocketServer server,
+    string listenOn,
+    ConnectionHandler handler,
+    NListenerTunables tunables = useServerDefaults,
+) {
     SocketAddress sockAddr;
     assert(parseSocketAddress(listenOn, sockAddr), "Invalid listening address");
     return listenTCP(server, sockAddr, handler);

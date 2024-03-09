@@ -6,6 +6,7 @@ module socketplate.server.worker;
 import core.atomic : atomicLoad, atomicStore;
 import socketplate.connection;
 import socketplate.log;
+import socketplate.server.tunables;
 import std.conv : to;
 import std.string : format;
 import std.socket : Address, Socket, SocketShutdown;
@@ -59,17 +60,21 @@ final class SocketListener {
         Socket _socket;
         Address _address;
         ConnectionHandler _callback;
-        int _timeout;
+        SocketListenerTunables _tunables;
         static Socket _accepted = null;
     }
 
-    public this(Socket socket, Address address, ConnectionHandler callback, int timeout) pure nothrow @nogc {
+    public this(Socket socket, Address address, ConnectionHandler callback, SocketListenerTunables tunables) pure nothrow @nogc {
         _socket = socket;
         _address = address;
         _callback = callback;
-        _timeout = timeout;
+        _tunables = tunables;
 
         _state = State.initial;
+    }
+
+    ref const(SocketListenerTunables) tunables() const pure nothrow @nogc {
+        return _tunables;
     }
 
     public bool isClosed() pure nothrow @nogc {
@@ -89,10 +94,10 @@ final class SocketListener {
         _state = State.bound;
     }
 
-    public void listen(int backlog)
+    public void listen()
     in (_state == State.bound) {
         logTrace(format!"Listening on %s (#%X)"(_address.toString, _socket.handle));
-        _socket.listen(backlog);
+        _socket.listen(_tunables.backlog);
         _state = State.listening;
     }
 
@@ -112,7 +117,7 @@ final class SocketListener {
 
         logTrace(format!"Incoming connection accepted (#%X @%02d)"(acceptedID, workerID));
         try {
-            _callback(makeSocketConnection(_accepted, _timeout));
+            _callback(makeSocketConnection(_accepted, _tunables.timeout));
         } catch (Exception ex) {
             logError(
                 format!"Unhandled Exception in connection handler (#%X): %s"(acceptedID, ex.msg)

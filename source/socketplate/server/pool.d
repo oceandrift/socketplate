@@ -19,8 +19,8 @@ final class WorkerPool {
     private {
         SocketServerTunables _tunables;
         const bool _spawnDynamically;
-        const int _configuredWorkers;
 
+        bool _started = false;
         bool _noShutdownSignalReceived = true;
         Thread[] _threads;
         Worker[] _workers;
@@ -29,27 +29,35 @@ final class WorkerPool {
 
     ///
     public this(SocketServerTunables tunables, SocketListener[] listeners) {
+        // store server tunables
         _tunables = tunables;
-        _spawnDynamically = (_tunables.workerSpawningStrategy == SpawningStrategy.dynamic);
 
-        if (_spawnDynamically) {
-            if (_tunables.workers > _tunables.workersMax) {
-                enum errorFmt = "The requested number of workers (%s) is greater than the configured maximum (%s).";
-                logError(format!errorFmt(_tunables.workers, _tunables.workersMax));
+        // setup worker
+        bool spawnDynamically = false;
+        int nWorkers = 0;
 
-                // fix workers count
-                _configuredWorkers = _tunables.workersMax;
-            } else {
-                if (_tunables.workers == _tunables.workersMax) {
+        foreach (listener; listeners) {
+            int configuredWorkers = listener.tunables.workers;
+
+            if (listener.isDynamicallySpawned) {
+                spawnDynamically = true;
+
+                if (configuredWorkers > listener.tunables.workersMax) {
+                    enum errorFmt = "The requested number of workers (%s) is greater than the configured maximum (%s).";
+                    logError(format!errorFmt(listener.tunables.workers, listener.tunables.workersMax));
+
+                    // fix workers count
+                    configuredWorkers = listener.tunables.workersMax;
+                } else if (listener.tunables.workers == listener.tunables.workersMax) {
                     enum warningFmt = "The requested number of workers (%s) matches the configured maximum (%s).";
-                    logWarning(format!warningFmt(_tunables.workers, _tunables.workersMax));
+                    logWarning(format!warningFmt(listener.tunables.workers, listener.tunables.workersMax));
                 }
-
-                _configuredWorkers = _tunables.workers;
             }
-        } else {
-            _configuredWorkers = _tunables.workers;
+
+            nWorkers += configuredWorkers;
         }
+
+        _spawnDynamically = spawnDynamically;
 
         _metas.reserve(listeners.length);
         foreach (listener; listeners) {
@@ -61,13 +69,14 @@ final class WorkerPool {
             );
         }
 
-        size_t nWorkers = (_metas.length * _configuredWorkers);
         _workers.reserve(nWorkers);
     }
 
     public {
         ///
-        int run() {
+        int run()
+        in (!_started, "Pool has already been started.") {
+            _started = true;
             logTrace("Starting SocketServer in Threading mode");
 
             scope (exit) {
@@ -78,8 +87,8 @@ final class WorkerPool {
 
             // spawn threads
             foreach (ref meta; _metas) {
-                meta.listener.listen(_tunables.backlog);
-                this.spawnWorkerThreads(meta, _tunables.workers);
+                meta.listener.listen();
+                this.spawnWorkerThreads(meta);
             }
 
             // setup signal handlers (if requested)
@@ -102,7 +111,7 @@ final class WorkerPool {
             // dynamic worker spawning (if applicable)
             if (_spawnDynamically) {
                 this.waitForWorkersToStart();
-                this.dynamicSpawnLoop();
+                this.dynamicSpawningLoop();
             }
 
             bool workerError = false;
@@ -126,17 +135,19 @@ final class WorkerPool {
     private {
         // Waits until all workers have started
         void waitForWorkersToStart() {
-            foreach (ref meta; _metas) {
-                workersOfListenerStarted: while (true) {
+            foreach (idx, ref meta; _metas) {
+                // skip non-dynamic workers
+                if (meta.isDynamicallySpawned) {
+                    continue;
+                }
+
+                while (!meta.allStarted()) {
                     if (!_noShutdownSignalReceived) {
                         return;
                     }
 
-                    if (meta.allStarted()) {
-                        break workersOfListenerStarted;
-                    }
-
-                    logTrace(format!"%s of %s threads started"(meta.comm.statusStarted, meta.workers));
+                    enum msg = "Listener ~%s: %s of %s workers started. Waiting.";
+                    logTrace(format!msg(idx, meta.comm.statusStarted, meta.workers));
 
                     // wait
                     (() @trusted => Thread.sleep(1.seconds))();
@@ -144,7 +155,7 @@ final class WorkerPool {
             }
         }
 
-        // Scans threads for non-exited ones
+        // Scans threads for non-exited ones.
         bool scanThreads() {
             foreach (thread; _threads) {
                 immutable bool isRunning = (() @trusted => thread.isRunning)();
@@ -157,21 +168,28 @@ final class WorkerPool {
             return false;
         }
 
-        void dynamicSpawnLoop()
+        // Monitors dynamic listeners and spawns additional workers as needed.
+        void dynamicSpawningLoop()
         in (_spawnDynamically) {
+            // FIXME: currently scans all threads
             while (_noShutdownSignalReceived && this.scanThreads()) {
                 size_t hitMax = 0;
                 foreach (idx, ref meta; _metas) {
+                    // skip non-dynamic listeners
+                    if (!meta.isDynamicallySpawned) {
+                        continue;
+                    }
+
                     if (meta.busy) {
-                        if (meta.workers >= _tunables.workersMax) {
-                            enum msg = "All workers of listener #%s are busy."
+                        if (meta.workers >= meta.listener.tunables.workersMax) {
+                            enum msg = "All workers of listener ~%s are busy."
                                 ~ " Hit maximum of %s workers per listener.";
-                            logTrace(format!msg(idx, _tunables.workersMax));
+                            logTrace(format!msg(idx, meta.listener.tunables.workersMax));
                             ++hitMax;
                             continue;
                         }
 
-                        logTrace(format!"All workers of listener #%s are busy. Spawning a further worker."(idx));
+                        logTrace(format!"All workers of listener ~%s are busy. Spawning an additional worker."(idx));
                         Thread thread = this.spawnWorkerThread(meta);
                         ((Thread thread) @trusted => thread.start())(thread);
                     }
@@ -186,11 +204,11 @@ final class WorkerPool {
             }
         }
 
+        // Spawns as many workers as configured at listener-level.
         void spawnWorkerThreads(
             ref PoolListenerMeta meta,
-            int n,
         ) {
-            foreach (idx; 0 .. n) {
+            foreach (idx; 0 .. meta.listener.tunables.workers) {
                 this.spawnWorkerThread(meta);
             }
         }
@@ -232,4 +250,12 @@ struct PoolListenerMeta {
     bool allStarted() nothrow @nogc const {
         return (comm.statusStarted >= workers);
     }
+}
+
+private bool isDynamicallySpawned(const ref SocketListener listener) pure nothrow @nogc {
+    return (listener.tunables.workerSpawningStrategy != SpawningStrategy.dynamic);
+}
+
+private bool isDynamicallySpawned(const ref PoolListenerMeta meta) pure nothrow @nogc {
+    return isDynamicallySpawned(meta.listener);
 }
