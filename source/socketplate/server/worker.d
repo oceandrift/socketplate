@@ -101,11 +101,11 @@ final class SocketListener {
         _state = State.listening;
     }
 
-    private void accept(size_t workerID, PoolCommunicator poolComm)
+    private void accept(string workerID, PoolCommunicator poolComm)
     in (_state == State.listening) {
         import std.socket : socket_t;
 
-        logTrace(format!"Accepting incoming connections (#%X @%02d)"(_socket.handle, workerID));
+        logTrace(format!"Accepting incoming connections (#%X @%s)"(_socket.handle, workerID));
         _accepted = _socket.accept();
 
         poolComm.notifyDoing();
@@ -115,7 +115,7 @@ final class SocketListener {
 
         socket_t acceptedID = _accepted.handle;
 
-        logTrace(format!"Incoming connection accepted (#%X @%02d)"(acceptedID, workerID));
+        logTrace(format!"Incoming connection accepted (#%X @%s)"(acceptedID, workerID));
         try {
             _callback(makeSocketConnection(_accepted, _tunables.timeout));
         } catch (Exception ex) {
@@ -179,13 +179,13 @@ final class Worker {
     private {
         shared(bool) _active = false;
 
-        size_t _id;
+        string _id;
         SocketListener _listener;
         PoolCommunicator _poolComm;
         bool _setupSignalHandlers;
     }
 
-    public this(PoolCommunicator poolComm, SocketListener listener, size_t id, bool setupSignalHandlers) {
+    public this(PoolCommunicator poolComm, SocketListener listener, string id, bool setupSignalHandlers) {
         _poolComm = poolComm;
         _listener = listener;
         _id = id;
@@ -198,7 +198,7 @@ final class Worker {
         _poolComm.notifyStarted();
 
         scope (exit) {
-            logTrace(format!"Worker @%02d says goodbye"(_id));
+            logTrace(format!"Worker @%s says goodbye"(_id));
         }
 
         if (_setupSignalHandlers) {
@@ -206,7 +206,7 @@ final class Worker {
         }
 
         scope (exit) {
-            logInfo(format!"Worker @%02d exiting"(_id));
+            logInfo(format!"Worker @%s exiting"(_id));
             _listener.ensureShutdownClosed();
         }
 

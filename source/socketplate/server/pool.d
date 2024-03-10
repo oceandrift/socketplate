@@ -240,7 +240,8 @@ final class WorkerPool {
             size_t id,
             SocketListener listener,
         ) {
-            auto worker = new Worker(poolComm, listener, id, _tunables.setupSignalHandlers);
+            import std.format : format;
+            auto worker = new Worker(poolComm, listener, format!"%02d"(id), _tunables.setupSignalHandlers);
             _workers ~= worker;
             return new Thread(&worker.run);
         }
