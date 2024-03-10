@@ -389,6 +389,11 @@ private {
             }
 
             serverTunables.listenerDefaults.workersMax = workersMax;
+
+            // assume strategy
+            if (strategy is null) {
+                serverTunables.listenerDefaults.workerSpawningStrategy = SpawningStrategy.dynamic;
+            }
         }
 
         // apply `--strategy` if applicable
