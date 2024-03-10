@@ -176,14 +176,10 @@ final class WorkerPool {
             import std.algorithm : remove;
 
             PoolListenerMeta*[] monitored;
-
             foreach (ref meta; _metas) {
-                // skip non-dynamic listeners
-                if (!meta.isDynamicallySpawned) {
-                    continue;
+                if (meta.isDynamicallySpawned) {
+                    monitored ~= &meta;
                 }
-
-                monitored ~= &meta;
             }
 
             // FIXME: currently scans all threads
