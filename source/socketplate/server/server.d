@@ -125,7 +125,7 @@ void listenTCP(
 ) {
     SocketAddress sockAddr;
     assert(parseSocketAddress(listenOn, sockAddr), "Invalid listening address");
-    return listenTCP(server, sockAddr, handler);
+    return listenTCP(server, sockAddr, handler, tunables);
 }
 
 // Converts a SocketAddress to an `std.socket.Address`
