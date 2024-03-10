@@ -62,7 +62,9 @@ final class WorkerPool {
         _metas.reserve(listeners.length);
         foreach (listener; listeners) {
             auto poolComm = new PoolCommunicator();
+            auto id = _metas.length;
             _metas ~= PoolListenerMeta(
+                id,
                 listener,
                 poolComm,
                 0,
@@ -171,37 +173,50 @@ final class WorkerPool {
         // Monitors dynamic listeners and spawns additional workers as needed.
         void dynamicSpawningLoop()
         in (_spawnDynamically) {
+            import std.algorithm : remove;
+
+            PoolListenerMeta*[] monitored;
+
+            foreach (ref meta; _metas) {
+                // skip non-dynamic listeners
+                if (!meta.isDynamicallySpawned) {
+                    continue;
+                }
+
+                monitored ~= &meta;
+            }
+
             // FIXME: currently scans all threads
             while (_noShutdownSignalReceived && this.scanThreads()) {
-                size_t hitMax = 0;
-                foreach (idx, ref meta; _metas) {
-                    // skip non-dynamic listeners
-                    if (!meta.isDynamicallySpawned) {
-                        continue;
-                    }
-
+                foreach (idx, PoolListenerMeta* meta; monitored) {
                     if (meta.busy) {
                         if (meta.workers >= meta.listener.tunables.workersMax) {
                             enum msg = "All workers of listener ~%s are busy."
                                 ~ " Hit maximum of %s workers per listener.";
-                            logTrace(format!msg(idx, meta.listener.tunables.workersMax));
-                            ++hitMax;
-                            continue;
-                        }
+                            logTrace(format!msg(meta.id, meta.listener.tunables.workersMax));
 
-                        logTrace(format!"All workers of listener ~%s are busy. Spawning an additional worker."(idx));
-                        Thread thread = this.spawnWorkerThread(meta);
+                            monitored = monitored.remove(idx);
+                            break; // break after removal. `idx` is invalid.
+                        }
+                        enum msgSpawnAdditional = "All workers of listener ~%s are busy."
+                            ~ " Spawning an additional worker.";
+                        logTrace(format!msgSpawnAdditional(meta.id));
+
+                        Thread thread = this.spawnWorkerThread(*meta);
                         ((Thread thread) @trusted => thread.start())(thread);
                     }
                 }
 
-                if (hitMax == _metas.length) {
+                if (monitored.length == 0) {
                     // leave monitoring loop
+                    logTrace("Dynamic maximum of workers has been spawned.");
                     break;
                 }
 
                 (() @trusted => Thread.sleep(1.msecs))();
             }
+
+            logTrace("Leaving dynamic-spawning loop.");
         }
 
         // Spawns as many workers as configured at listener-level.
@@ -237,6 +252,7 @@ final class WorkerPool {
 }
 
 struct PoolListenerMeta {
+    size_t id;
     SocketListener listener;
     PoolCommunicator comm;
     int workers = 0;
