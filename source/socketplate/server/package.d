@@ -81,5 +81,7 @@
  +/
 module socketplate.server;
 
+public import socketplate.server.pool;
 public import socketplate.server.server;
+public import socketplate.server.tunables;
 public import socketplate.server.worker;
