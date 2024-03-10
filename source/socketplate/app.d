@@ -236,7 +236,7 @@ int runSocketplateApp(
 }
 
 /// ditto
-int runSocketplateAppTCP(
+int runSocketplateApp(
     string appName,
     string[] args,
     ConnectionHandler tcpConnectionHandler,
@@ -305,6 +305,25 @@ int runSocketplateAppTCP(
         serverDefaults,
         listenerDefaults,
         "S|serve", "Socket(s) to listen on", &sockets
+    );
+}
+
+/// ditto
+deprecated int runSocketplateAppTCP(
+    string appName,
+    string[] args,
+    ConnectionHandler tcpConnectionHandler,
+    const string[] defaultListeningAddresses = null,
+    SocketServerTunables serverDefaults = SocketServerTunables(),
+    SocketListenerTunables listenerDefaults = SocketListenerTunables(),
+) {
+    return runSocketplateApp(
+        appName,
+        args,
+        tcpConnectionHandler,
+        defaultListeningAddresses,
+        serverDefaults,
+        listenerDefaults
     );
 }
 

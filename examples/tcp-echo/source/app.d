@@ -2,7 +2,7 @@ import socketplate.app;
 
 int main(string[] args) @safe
 {
-    return runSocketplateAppTCP("Socketplate TCP Echo Example", args, delegate(SocketConnection connection)
+    return runSocketplateApp("Socketplate TCP Echo Example", args, delegate(SocketConnection connection)
     {
         ubyte[] b = new ubyte[](256);
 
