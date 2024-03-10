@@ -23,21 +23,19 @@ final class SocketServer {
 
     private {
         SocketServerTunables _tunables;
-        SocketListenerTunables _listenerTunablesDefaults;
         bool _shutdown = false;
 
         SocketListener[] _listeners;
     }
 
     ///
-    public this(SocketServerTunables tunables, SocketListenerTunables listenerTunablesDefaults) pure nothrow @nogc {
+    public this(SocketServerTunables tunables) pure nothrow @nogc {
         _tunables = tunables;
-        _listenerTunablesDefaults = listenerTunablesDefaults;
     }
 
     /// ditto
     public this() pure nothrow @nogc {
-        this(SocketServerTunables(), SocketListenerTunables());
+        this(SocketServerTunables());
     }
 
     public {
@@ -94,7 +92,7 @@ void listenTCP(
         ? cast(ProtocolType) 0 : ProtocolType.TCP;
 
     SocketListenerTunables applicableTunables = (tunables.isNull)
-        ? server._listenerTunablesDefaults : tunables.get();
+        ? server._tunables.listenerDefaults : tunables.get();
 
     auto listener = new SocketListener(
         new Socket(address.addressFamily, SocketType.STREAM, protocolType),

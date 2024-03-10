@@ -229,10 +229,9 @@ int runSocketplateApp(
     string[] args,
     void delegate(SocketServer) @safe setupCallback,
     SocketServerTunables serverDefaults = SocketServerTunables(),
-    SocketListenerTunables listenerDefaults = SocketListenerTunables(),
 ) {
     // “Manual handler setup” mode
-    return runSocketplateAppImpl(appName, args, setupCallback, serverDefaults, listenerDefaults);
+    return runSocketplateAppImpl(appName, args, setupCallback, serverDefaults);
 }
 
 /// ditto
@@ -242,7 +241,6 @@ int runSocketplateApp(
     ConnectionHandler tcpConnectionHandler,
     const string[] defaultListeningAddresses = null,
     SocketServerTunables serverDefaults = SocketServerTunables(),
-    SocketListenerTunables listenerDefaults = SocketListenerTunables(),
 ) {
     // “Single connection handler” mode
 
@@ -303,7 +301,6 @@ int runSocketplateApp(
         args,
         setupCallback,
         serverDefaults,
-        listenerDefaults,
         "S|serve", "Socket(s) to listen on", &sockets
     );
 }
@@ -315,7 +312,6 @@ deprecated int runSocketplateAppTCP(
     ConnectionHandler tcpConnectionHandler,
     const string[] defaultListeningAddresses = null,
     SocketServerTunables serverDefaults = SocketServerTunables(),
-    SocketListenerTunables listenerDefaults = SocketListenerTunables(),
 ) {
     return runSocketplateApp(
         appName,
@@ -323,7 +319,6 @@ deprecated int runSocketplateAppTCP(
         tcpConnectionHandler,
         defaultListeningAddresses,
         serverDefaults,
-        listenerDefaults
     );
 }
 
@@ -333,7 +328,6 @@ private {
         string[] args,
         void delegate(SocketServer) @safe setupCallback,
         SocketServerTunables serverDefaults,
-        SocketListenerTunables listenerDefaults,
         Opts opts,
     ) {
         int workers = int.min;
@@ -376,7 +370,6 @@ private {
 
         // apply caller-provided defaults
         SocketServerTunables serverTunables = serverDefaults;
-        SocketListenerTunables listenerTunables = listenerDefaults;
 
         // apply `--workers` if applicable
         if (workers != int.min) {
@@ -385,7 +378,7 @@ private {
                 return 1;
             }
 
-            listenerTunables.workers = workers;
+            serverTunables.listenerDefaults.workers = workers;
         }
 
         // apply `--workers-max` if applicable
@@ -395,7 +388,7 @@ private {
                 return 1;
             }
 
-            listenerTunables.workersMax = workersMax;
+            serverTunables.listenerDefaults.workersMax = workersMax;
         }
 
         // apply `--strategy` if applicable
@@ -406,18 +399,18 @@ private {
                 return 1;
 
             case "static":
-                listenerTunables.workerSpawningStrategy = SpawningStrategy.static_;
+                serverTunables.listenerDefaults.workerSpawningStrategy = SpawningStrategy.static_;
                 break;
 
             case "dynamic":
-                listenerTunables.workerSpawningStrategy = SpawningStrategy.dynamic;
+                serverTunables.listenerDefaults.workerSpawningStrategy = SpawningStrategy.dynamic;
                 break;
             }
         }
 
         // print app name before further setup
         logInfo(appName);
-        auto server = new SocketServer(serverTunables, listenerTunables);
+        auto server = new SocketServer(serverTunables);
 
         // do setup, if non-null callback provided
         if (setupCallback !is null) {
