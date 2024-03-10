@@ -240,7 +240,7 @@ int runSocketplateAppTCP(
     string appName,
     string[] args,
     ConnectionHandler tcpConnectionHandler,
-    string[] defaultListeningAddresses = null,
+    const string[] defaultListeningAddresses = null,
     SocketServerTunables serverDefaults = SocketServerTunables(),
     SocketListenerTunables listenerDefaults = SocketListenerTunables(),
 ) {
