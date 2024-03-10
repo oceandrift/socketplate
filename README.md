@@ -9,7 +9,7 @@ import socketplate.app;
 
 int main(string[] args) @safe
 {
-    return runSocketplateAppTCP("Simple echo server", args, delegate(SocketConnection connection)
+    return runSocketplateApp("Simple echo server", args, delegate(SocketConnection connection)
     {
         ubyte[] buffer = new ubyte[](256);
 
