@@ -253,7 +253,7 @@ struct PoolListenerMeta {
 }
 
 private bool isDynamicallySpawned(const ref SocketListener listener) pure nothrow @nogc {
-    return (listener.tunables.workerSpawningStrategy != SpawningStrategy.dynamic);
+    return (listener.tunables.workerSpawningStrategy == SpawningStrategy.dynamic);
 }
 
 private bool isDynamicallySpawned(const ref PoolListenerMeta meta) pure nothrow @nogc {
