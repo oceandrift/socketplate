@@ -22,7 +22,6 @@ final class WorkerPool {
 
         bool _started = false;
         bool _noShutdownSignalReceived = true;
-        Thread[] _threads;
         Worker[] _workers;
         PoolListenerMeta[] _metas;
     }
@@ -67,7 +66,7 @@ final class WorkerPool {
                 id,
                 listener,
                 poolComm,
-                0,
+                [],
             );
         }
 
@@ -101,13 +100,17 @@ final class WorkerPool {
                     _noShutdownSignalReceived = false;
 
                     // signal threads
-                    forwardSignal(signal, _threads);
+                    foreach (ref meta; _metas) {
+                        forwardSignal(signal, meta.threads);
+                    }
                 });
             }
 
             // start worker threads
-            foreach (Thread thread; _threads) {
-                function(Thread thread) @trusted { thread.start(); }(thread);
+            foreach (ref meta; _metas) {
+                foreach (Thread thread; meta.threads) {
+                    function(Thread thread) @trusted { thread.start(); }(thread);
+                }
             }
 
             // dynamic worker spawning (if applicable)
@@ -119,14 +122,16 @@ final class WorkerPool {
             bool workerError = false;
 
             // wait for workers to exit
-            foreach (thread; _threads) {
-                function(Thread thread, ref workerError) @trusted {
-                    try {
-                        thread.join(true);
-                    } catch (Exception) {
-                        workerError = true;
-                    }
-                }(thread, workerError);
+            foreach (ref meta; _metas) {
+                foreach (thread; meta.threads) {
+                    function(Thread thread, ref workerError) @trusted {
+                        try {
+                            thread.join(true);
+                        } catch (Exception) {
+                            workerError = true;
+                        }
+                    }(thread, workerError);
+                }
             }
 
             // determine exit-code
@@ -149,25 +154,12 @@ final class WorkerPool {
                     }
 
                     enum msg = "Listener ~%s: %s of %s workers started. Waiting.";
-                    logTrace(format!msg(idx, meta.comm.statusStarted, meta.workers));
+                    logTrace(format!msg(idx, meta.comm.statusStarted, meta.workerCount));
 
                     // wait
                     (() @trusted => Thread.sleep(1.seconds))();
                 }
             }
-        }
-
-        // Scans threads for non-exited ones.
-        bool scanThreads() {
-            foreach (thread; _threads) {
-                immutable bool isRunning = (() @trusted => thread.isRunning)();
-                if (isRunning) {
-                    return true;
-                }
-            }
-
-            logWarning("No more threads running.");
-            return false;
         }
 
         // Monitors dynamic listeners and spawns additional workers as needed.
@@ -182,17 +174,21 @@ final class WorkerPool {
                 }
             }
 
-            // FIXME: currently scans all threads
-            while (_noShutdownSignalReceived && this.scanThreads()) {
+            while (_noShutdownSignalReceived) {
                 foreach (idx, PoolListenerMeta* meta; monitored) {
+                    if (!scanThreads(*meta)) {
+                        monitored = monitored.remove(idx);
+                        break; // break foreach-loop after removal; `idx` is invalid.
+                    }
+
                     if (meta.busy) {
-                        if (meta.workers >= meta.listener.tunables.workersMax) {
+                        if (meta.workerCount >= meta.listener.tunables.workersMax) {
                             enum msg = "All workers of listener ~%s are busy."
                                 ~ " Hit maximum of %s workers per listener.";
                             logTrace(format!msg(meta.id, meta.listener.tunables.workersMax));
 
                             monitored = monitored.remove(idx);
-                            break; // break after removal. `idx` is invalid.
+                            break; // break foreach-loop after removal; `idx` is invalid.
                         }
                         enum msgSpawnAdditional = "All workers of listener ~%s are busy."
                             ~ " Spawning an additional worker.";
@@ -227,48 +223,70 @@ final class WorkerPool {
         Thread spawnWorkerThread(
             ref PoolListenerMeta meta,
         ) {
-            immutable id = _threads.length;
-            Thread spawned = this.spawnWorkerThread(meta.comm, id, meta.listener);
-            _threads ~= spawned;
-            ++meta.workers;
+            immutable threadID = meta.threads.length;
+            immutable listenerID = meta.id;
+
+            Thread spawned = this.spawnWorkerThread(meta.comm, listenerID, threadID, meta.listener);
+            meta.threads ~= spawned;
 
             return spawned;
         }
 
         Thread spawnWorkerThread(
             PoolCommunicator poolComm,
-            size_t id,
+            size_t listenerID,
+            size_t threadID,
             SocketListener listener,
         ) {
-            import std.format : format;
-            auto worker = new Worker(poolComm, listener, format!"%02d"(id), _tunables.setupSignalHandlers);
+            string id = format!"%d-%02d"(listenerID, threadID);
+
+            auto worker = new Worker(poolComm, listener, id, _tunables.setupSignalHandlers);
             _workers ~= worker;
             return new Thread(&worker.run);
         }
     }
 }
 
+private:
+
 struct PoolListenerMeta {
     size_t id;
     SocketListener listener;
     PoolCommunicator comm;
-    int workers = 0;
+    Thread[] threads;
 
 @safe:
 
+    size_t workerCount() const pure nothrow @nogc {
+        return threads.length;
+    }
+
     bool busy() nothrow @nogc const {
-        return (comm.status >= workers);
+        return (comm.status >= workerCount);
     }
 
     bool allStarted() nothrow @nogc const {
-        return (comm.statusStarted >= workers);
+        return (comm.statusStarted >= workerCount);
     }
 }
 
-private bool isDynamicallySpawned(const ref SocketListener listener) pure nothrow @nogc {
+bool isDynamicallySpawned(const ref SocketListener listener) pure nothrow @nogc {
     return (listener.tunables.workerSpawningStrategy == SpawningStrategy.dynamic);
 }
 
-private bool isDynamicallySpawned(const ref PoolListenerMeta meta) pure nothrow @nogc {
+bool isDynamicallySpawned(const ref PoolListenerMeta meta) pure nothrow @nogc {
     return isDynamicallySpawned(meta.listener);
+}
+
+// Scans threads for non-exited ones.
+bool scanThreads(ref PoolListenerMeta meta) {
+    foreach (thread; meta.threads) {
+        immutable bool isRunning = (() @trusted => thread.isRunning)();
+        if (isRunning) {
+            return true;
+        }
+    }
+
+    logWarning("No more threads running.");
+    return false;
 }
