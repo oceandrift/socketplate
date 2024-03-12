@@ -67,6 +67,22 @@ struct SocketAddress {
         /// Internet Protocal Version 6 (IPv6) address
         ipv6,
     }
+
+@safe:
+
+    ///
+    string toString() inout pure nothrow {
+        final switch (type) {
+        case Type.invalid:
+            return "<invalid/address>";
+        case Type.ipv4:
+            return address ~ ":" ~ port.to!string();
+        case Type.ipv6:
+            return "[" ~ address ~ "]:" ~ port.to!string();
+        case Type.unixDomain:
+            return address;
+        }
+    }
 }
 
 /++
