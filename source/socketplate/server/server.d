@@ -52,6 +52,14 @@ final class SocketServer {
             }
 
             logTrace("Running");
+
+            // single-worker mode?
+            if ((_listeners.length == 1) && _listeners[0].tunables.isASingleWorkerOnly) {
+                runSingleWorker(_listeners[0], _tunables);
+                return 0;
+            }
+
+            // multi-worker pool mode
             auto pool = new WorkerPool(_tunables, _listeners);
             return pool.run();
         }

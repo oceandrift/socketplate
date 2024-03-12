@@ -77,3 +77,13 @@ enum SpawningStrategy {
      +/
     dynamic,
 }
+
+@safe:
+
+///
+bool isASingleWorkerOnly(const ref SocketListenerTunables tunables) pure nothrow @nogc {
+    return (
+        (tunables.workerSpawningStrategy == SpawningStrategy.static_)
+            && (tunables.workers == 1)
+    );
+}

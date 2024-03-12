@@ -73,7 +73,7 @@ final class SocketListener {
         _state = State.initial;
     }
 
-    ref const(SocketListenerTunables) tunables() const pure nothrow @nogc {
+    public ref const(SocketListenerTunables) tunables() const pure nothrow @nogc {
         return _tunables;
     }
 
@@ -108,9 +108,13 @@ final class SocketListener {
         logTrace(format!"Accepting incoming connections (#%X @%s)"(_socket.handle, workerID));
         _accepted = _socket.accept();
 
-        poolComm.notifyDoing();
+        if (poolComm !is null) {
+            poolComm.notifyDoing();
+        }
         scope (exit) {
-            poolComm.notifyDone();
+            if (poolComm !is null) {
+                poolComm.notifyDone();
+            }
         }
 
         socket_t acceptedID = _accepted.handle;
@@ -195,7 +199,9 @@ final class Worker {
     public void run() {
         import std.socket : SocketException;
 
-        _poolComm.notifyStarted();
+        if (_poolComm !is null) {
+            _poolComm.notifyStarted();
+        }
 
         scope (exit) {
             logTrace(format!"Worker @%s says goodbye"(_id));
@@ -233,6 +239,15 @@ final class Worker {
             this._listener.shutdownAccepted();
         });
     }
+}
+
+void runSingleWorker(SocketListener listener, SocketServerTunables tunables, string id = "main") {
+    logTrace("Running listener @", id, " in single-worker mode.");
+
+    listener.listen();
+
+    auto w = new Worker(null, listener, id, tunables.setupSignalHandlers);
+    return w.run();
 }
 
 private SocketConnection makeSocketConnection(Socket socket, int seconds) {
