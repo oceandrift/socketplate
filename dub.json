@@ -1,0 +1,14 @@
+{
+	"name": "socketplate",
+	"description": "Straightforward socket server: Puts the “fun” in socket programming + built-in CLI",
+
+	"copyright": "Copyright © 2023  Elias Batek",
+	"license": "BSL-1.0",
+
+	"authors": ["Elias Batek (0xEAB)"],
+
+	"targetType": "library",
+	"targetPath": "bin",
+
+	"dflags": ["-preview=dip1000"]
+}
