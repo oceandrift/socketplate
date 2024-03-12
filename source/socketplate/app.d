@@ -258,7 +258,7 @@ int runSocketplateApp(
         if (sockets.length == 0) {
             // no default address(es) provided?
             if (defaultListeningAddresses.length == 0) {
-                logError("No listening addresses specified. Use --serve= ");
+                logError("No listening address specified. Use parameter `--serve=<addr>` to pass them.");
                 return;
             }
 
