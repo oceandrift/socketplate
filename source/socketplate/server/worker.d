@@ -64,7 +64,12 @@ final class SocketListener {
         static Socket _accepted = null;
     }
 
-    public this(Socket socket, Address address, ConnectionHandler callback, SocketListenerTunables tunables) pure nothrow @nogc {
+    public this(
+        Socket socket,
+        Address address,
+        ConnectionHandler callback,
+        SocketListenerTunables tunables,
+    ) pure nothrow @nogc {
         _socket = socket;
         _address = address;
         _callback = callback;
