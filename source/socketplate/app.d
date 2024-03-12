@@ -240,6 +240,7 @@ int runSocketplateApp(
     string[] args,
     ConnectionHandler tcpConnectionHandler,
     const string[] defaultListeningAddresses = null,
+    void delegate(SocketAddress) @safe foreachListeningAddress = null,
     SocketServerTunables serverDefaults = SocketServerTunables(),
 ) {
     // “Single connection handler” mode
@@ -264,8 +265,17 @@ int runSocketplateApp(
 
             // use default address(es) instead
             foreach (sockAddr; defaultListeningAddresses) {
+                SocketAddress parsed;
+                if (!parseSocketAddress(sockAddr, parsed)) {
+                    assert(false, "Invalid default listening-address: `" ~ sockAddr ~ "`");
+                }
+
                 logTrace("Will listen on default address: " ~ sockAddr);
-                server.listenTCP(sockAddr, tcpConnectionHandler);
+
+                server.listenTCP(parsed, tcpConnectionHandler);
+                if (foreachListeningAddress !is null) {
+                    foreachListeningAddress(parsed);
+                }
             }
 
             return;
@@ -293,6 +303,9 @@ int runSocketplateApp(
             }
 
             server.listenTCP(parsed, tcpConnectionHandler);
+            if (foreachListeningAddress !is null) {
+                foreachListeningAddress(parsed);
+            }
         }
     };
 
@@ -306,7 +319,7 @@ int runSocketplateApp(
 }
 
 /// ditto
-deprecated int runSocketplateAppTCP(
+deprecated("Use `runSocketplateApp()` instead.") int runSocketplateAppTCP(
     string appName,
     string[] args,
     ConnectionHandler tcpConnectionHandler,
@@ -318,6 +331,7 @@ deprecated int runSocketplateAppTCP(
         args,
         tcpConnectionHandler,
         defaultListeningAddresses,
+        null,
         serverDefaults,
     );
 }
